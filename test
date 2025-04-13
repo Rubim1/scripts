@@ -1,318 +1,12 @@
 --[[
-    Advanced Roblox Aimbot & ESP Script v2.0
+    Advanced Roblox Aimbot & ESP Script
     Features:
-    - Enhanced GUI with modern design
-    - ESP with skeleton visualization and color customization
-    - Advanced Aimbot with prediction and target selection
+    - Customizable GUI
+    - ESP with skeleton visualization
+    - Aimbot with wall and team checks
     - Performance optimization
     - Multiple customization options
 ]]
-
--- Mock Roblox environment for standalone Lua testing
-local function CreateMockEnvironment()
-    print("Creating mock Roblox environment for standalone testing...")
-    
-    -- Create basic objects needed to simulate Roblox environment
-    _G.game = {
-        GetService = function(self, serviceName)
-            if not self.Services then
-                self.Services = {}
-            end
-            
-            if not self.Services[serviceName] then
-                if serviceName == "Players" then
-                    self.Services[serviceName] = {
-                        LocalPlayer = {
-                            GetMouse = function() 
-                                return {X = 0, Y = 0} 
-                            end,
-                            Name = "TestPlayer",
-                            Character = {},
-                            IsA = function(self, className) return className == "Player" end
-                        },
-                        GetPlayers = function() 
-                            local testPlayer = {
-                                Name = "TestPlayer1",
-                                Character = {
-                                    HumanoidRootPart = {
-                                        Position = Vector3.new(10, 5, 10)
-                                    },
-                                    Head = {
-                                        Position = Vector3.new(10, 7, 10)
-                                    },
-                                    FindFirstChild = function(_, name)
-                                        if name == "HumanoidRootPart" then
-                                            return {
-                                                Position = Vector3.new(10, 5, 10)
-                                            }
-                                        elseif name == "Head" then
-                                            return {
-                                                Position = Vector3.new(10, 7, 10)
-                                            }
-                                        end
-                                        return nil
-                                    end,
-                                    FindFirstChildOfClass = function() 
-                                        return {Health = 100} 
-                                    end,
-                                    GetChildren = function() return {} end
-                                },
-                                Team = nil,
-                                IsA = function(_, className) return className == "Player" end
-                            }
-                            return {self.Services[serviceName].LocalPlayer, testPlayer} 
-                        end,
-                        PlayerAdded = {
-                            Connect = function(_, callback) end
-                        },
-                        PlayerRemoving = {
-                            Connect = function(_, callback) end
-                        }
-                    }
-                elseif serviceName == "RunService" then
-                    self.Services[serviceName] = {
-                        RenderStepped = {
-                            Connect = function(_, callback) end
-                        }
-                    }
-                elseif serviceName == "UserInputService" then
-                    self.Services[serviceName] = {
-                        InputBegan = {
-                            Connect = function(_, callback) end
-                        },
-                        InputEnded = {
-                            Connect = function(_, callback) end
-                        },
-                        IsMouseButtonPressed = function() 
-                            return false 
-                        end
-                    }
-                elseif serviceName == "TweenService" then
-                    self.Services[serviceName] = {
-                        Create = function()
-                            return {
-                                Play = function() end
-                            }
-                        end
-                    }
-                elseif serviceName == "Workspace" then
-                    self.Services[serviceName] = {
-                        CurrentCamera = {
-                            ViewportSize = {X = 1920, Y = 1080},
-                            CFrame = {
-                                Position = {X = 0, Y = 0, Z = 0},
-                                Lerp = function() return {} end
-                            }
-                        }
-                    }
-                end
-            end
-            
-            return self.Services[serviceName] or {}
-        end,
-        CoreGui = {
-            ChildRemoved = {
-                Connect = function(_, callback) end
-            }
-        }
-    }
-    
-    _G.Drawing = {
-        new = function(type)
-            return {
-                Visible = false,
-                Color = {R = 1, G = 1, B = 1},
-                Thickness = 1,
-                Transparency = 1,
-                Radius = 5,
-                Position = {X = 0, Y = 0},
-                Size = {X = 0, Y = 0},
-                From = {X = 0, Y = 0},
-                To = {X = 0, Y = 0},
-                NumSides = 30,
-                Filled = false,
-                Text = "",
-                Font = 1,
-                Center = false,
-                Outline = false,
-                OutlineColor = {R = 0, G = 0, B = 0},
-                Remove = function() end
-            }
-        end
-    }
-    
-    _G.Instance = {
-        new = function(className)
-            local instance = {
-                Name = "",
-                Parent = nil,
-                Size = UDim2.new(),
-                Position = UDim2.new(),
-                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-                BorderSizePixel = 0,
-                Text = "",
-                Visible = true,
-                ClassName = className,
-                MouseButton1Click = {
-                    Connect = function(_, callback) end
-                },
-                MouseButton1Down = {
-                    Connect = function(_, callback) end
-                },
-                MouseButton1Up = {
-                    Connect = function(_, callback) end
-                },
-                MouseMoved = {
-                    Connect = function(_, callback) end
-                },
-                GetPropertyChangedSignal = function() 
-                    return { 
-                        Connect = function() end 
-                    } 
-                end,
-                FindFirstChild = function() return nil end,
-                IsA = function(self, className) return self.ClassName == className end,
-                Remove = function() end,
-                GetChildren = function() return {} end
-            }
-            return instance
-        end
-    }
-    
-    _G.Color3 = {
-        fromRGB = function(r, g, b)
-            return {R = r/255, G = g/255, B = b/255}
-        end,
-        new = function(r, g, b)
-            return {R = r, G = g, B = b}
-        end
-    }
-    
-    _G.Vector2 = {
-        new = function(x, y)
-            return {
-                X = x or 0, 
-                Y = y or 0,
-                Magnitude = function(self) 
-                    return math.sqrt(self.X^2 + self.Y^2) 
-                end
-            }
-        end
-    }
-    
-    _G.Vector3 = {
-        new = function(x, y, z)
-            return {X = x or 0, Y = y or 0, Z = z or 0}
-        end
-    }
-    
-    _G.CFrame = {
-        new = function()
-            return {
-                Position = Vector3.new()
-            }
-        end
-    }
-    
-    _G.UDim = {
-        new = function(scale, offset)
-            return {
-                Scale = scale or 0,
-                Offset = offset or 0
-            }
-        end
-    }
-    
-    _G.UDim2 = {
-        new = function(scaleX, offsetX, scaleY, offsetY)
-            return {
-                X = {Scale = scaleX or 0, Offset = offsetX or 0},
-                Y = {Scale = scaleY or 0, Offset = offsetY or 0}
-            }
-        end
-    }
-    
-    _G.ColorSequence = {
-        new = function()
-            return {}
-        end
-    }
-    
-    _G.ColorSequenceKeypoint = {
-        new = function()
-            return {}
-        end
-    }
-    
-    _G.TweenInfo = {
-        new = function()
-            return {}
-        end
-    }
-    
-    _G.Enum = {
-        Font = {
-            SourceSans = "SourceSans",
-            SourceSansBold = "SourceSansBold",
-            GothamBold = "GothamBold",
-            Legacy = "Legacy"
-        },
-        TextXAlignment = {
-            Left = "Left",
-            Right = "Right",
-            Center = "Center"
-        },
-        TextTruncate = {
-            AtEnd = "AtEnd",
-            None = "None"
-        },
-        KeyCode = {
-            E = "E",
-            Q = "Q",
-            RightAlt = "RightAlt"
-        },
-        UserInputType = {
-            MouseButton1 = "MouseButton1",
-            MouseButton2 = "MouseButton2"
-        },
-        SortOrder = {
-            LayoutOrder = "LayoutOrder",
-            Name = "Name"
-        }
-    }
-    
-    -- Mock functions
-    _G.mousemoveabs = function(x, y) end
-    
-    -- Set up global references
-    for k, v in pairs(_G) do
-        if k ~= "game" then
-            _G[k] = v
-        end
-    end
-    
-    -- Export globals
-    game = _G.game
-    Drawing = _G.Drawing
-    Instance = _G.Instance
-    Color3 = _G.Color3
-    Vector2 = _G.Vector2
-    Vector3 = _G.Vector3
-    CFrame = _G.CFrame
-    UDim = _G.UDim
-    UDim2 = _G.UDim2
-    ColorSequence = _G.ColorSequence
-    ColorSequenceKeypoint = _G.ColorSequenceKeypoint
-    TweenInfo = _G.TweenInfo
-    Enum = _G.Enum
-    mousemoveabs = _G.mousemoveabs
-    
-    return true
-end
-
--- Create mock environment for testing in standalone Lua
-local isTestEnvironment = CreateMockEnvironment()
-print("Running in test environment mode: " .. tostring(isTestEnvironment))
 
 -- Services
 local Players = game:GetService("Players")
@@ -331,9 +25,6 @@ local Drawing = Drawing
 local ESP_COLOR = Color3.fromRGB(255, 0, 0)
 local ESP_TEAM_COLOR = Color3.fromRGB(0, 255, 0)
 local AIMBOT_FOV_COLOR = Color3.fromRGB(255, 255, 255)
-local GUI_ACCENT_COLOR = Color3.fromRGB(60, 120, 216)
-local GUI_BACKGROUND_COLOR = Color3.fromRGB(25, 25, 25)
-local GUI_TEXT_COLOR = Color3.fromRGB(240, 240, 240)
 local DEFAULT_SETTINGS = {
     -- ESP Settings
     EspEnabled = true,
@@ -347,10 +38,7 @@ local DEFAULT_SETTINGS = {
     TeamColor = true,
     ShowTeam = false,
     MaxEspDistance = 1000,
-    CustomEspColor = Color3.fromRGB(255, 0, 0),    -- Added ESP color customization
-    CustomTeamEspColor = Color3.fromRGB(0, 255, 0), -- Added Team ESP color customization
-    EspTransparency = 1,                           -- Added ESP transparency
-    
+
     -- Aimbot Settings
     AimbotEnabled = true,
     AimPart = "Head",
@@ -363,14 +51,13 @@ local DEFAULT_SETTINGS = {
     AimFov = 100,
     ShowFov = true,
     VisibilityCheck = true,
-    MaxDistance = 500,
-    PredictionEnabled = true,   -- Added prediction for moving targets
-    PredictionAmount = 0.165,   -- Prediction strength (higher = more prediction)
-    IgnoredPlayers = {},        -- Added player ignore list
-    
-    -- Visual Settings
-    CustomFovColor = Color3.fromRGB(255, 255, 255), -- Added FOV circle color customization
-    
+    MaxDistance = 1000,
+
+    -- Prediction settings
+    BulletSpeed = 1000,
+    GravityStrength = 196.2,
+    DropCompensation = 1.0,
+
     -- Keybinds
     ToggleGuiKey = "RightControl"
 }
@@ -381,8 +68,7 @@ local EspObjects = {}
 local SkeletonObjects = {}
 local AimbotTarget = nil
 local FovCircle = nil
-local GuiVisible = true -- Always start with GUI visible
-local MainGui = nil -- Store direct reference to the GUI
+local GuiVisible = true
 
 -- Helper Functions
 local function IsAlive(player)
@@ -402,21 +88,21 @@ local function IsVisible(character, part)
     if not Settings.WallCheck or not Settings.VisibilityCheck then
         return true
     end
-    
+
     local origin = Camera.CFrame.Position
     local target = part.Position
     local direction = (target - origin).Unit
-    
+
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-    
+
     local rayResult = Workspace:Raycast(origin, direction * Settings.MaxDistance, rayParams)
-    
+
     if rayResult then
         return rayResult.Instance:IsDescendantOf(character)
     end
-    
+
     return false
 end
 
@@ -441,17 +127,16 @@ local function UpdateFovCircle()
     if not FovCircle then
         FovCircle = CreateDrawing("Circle", {
             Visible = Settings.ShowFov and Settings.AimbotEnabled,
-            Color = Settings.CustomFovColor,
-            Thickness = 1.5, -- Increased thickness for better visibility
+            Color = AIMBOT_FOV_COLOR,
+            Thickness = 1,
             NumSides = 60,
             Filled = false,
-            Transparency = 0.6, -- Slightly more opaque
+            Transparency = 0.5,
             Radius = Settings.AimFov,
             Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         })
     else
         FovCircle.Visible = Settings.ShowFov and Settings.AimbotEnabled
-        FovCircle.Color = Settings.CustomFovColor
         FovCircle.Radius = Settings.AimFov
         FovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     end
@@ -462,45 +147,40 @@ local function CreateEspObject(player)
     if EspObjects[player] then
         return
     end
-    
-    -- Create ESP objects with improved visuals and better accuracy
+
     EspObjects[player] = {
-        -- Box ESP with thicker lines for better visibility
         Box = CreateDrawing("Square", {
             Visible = false,
             Color = ESP_COLOR,
-            Thickness = 1.5,  -- Increased thickness
+            Thickness = 1,
             Filled = false,
-            Transparency = Settings.EspTransparency
+            Transparency = 1
         }),
-        -- Name ESP with improved font and better positioning
         Name = CreateDrawing("Text", {
             Visible = false,
             Color = ESP_COLOR,
             Font = 2,
-            Size = 14,  -- Slightly larger text
+            Size = 13,
             Center = true,
             Outline = true,
             OutlineColor = Color3.new(0, 0, 0),
-            Transparency = Settings.EspTransparency
+            Transparency = 1
         }),
-        -- Distance ESP with enhanced readability
         Distance = CreateDrawing("Text", {
             Visible = false,
             Color = ESP_COLOR,
             Font = 2,
-            Size = 14,  -- Consistent size with name
+            Size = 13,
             Center = true,
             Outline = true,
             OutlineColor = Color3.new(0, 0, 0),
-            Transparency = Settings.EspTransparency
+            Transparency = 1
         }),
-        -- Improved head dot with better circle quality
         HeadDot = CreateDrawing("Circle", {
             Visible = false,
             Color = ESP_COLOR,
             Thickness = 1,
-            NumSides = 36,  -- More sides for smoother circle
+            NumSides = 30,
             Filled = true,
             Transparency = 1,
             Radius = 3
@@ -512,7 +192,7 @@ local function CreateEspObject(player)
             Transparency = 1
         })
     }
-    
+
     -- Create skeleton line objects
     SkeletonObjects[player] = {
         Head_UpperTorso = CreateDrawing("Line", {
@@ -582,12 +262,12 @@ local function RemoveEspObject(player)
     if not EspObjects[player] then
         return
     end
-    
+
     for _, obj in pairs(EspObjects[player]) do
         obj:Remove()
     end
     EspObjects[player] = nil
-    
+
     if SkeletonObjects[player] then
         for _, obj in pairs(SkeletonObjects[player]) do
             obj:Remove()
@@ -605,7 +285,7 @@ local function UpdateEsp()
                 for _, obj in pairs(objects) do
                     obj.Visible = false
                 end
-                
+
                 if SkeletonObjects[player] then
                     for _, obj in pairs(SkeletonObjects[player]) do
                         obj.Visible = false
@@ -615,15 +295,17 @@ local function UpdateEsp()
                 local character = player.Character
                 local rootPart = character:FindFirstChild("HumanoidRootPart")
                 local head = character:FindFirstChild("Head")
-                
-                if rootPart and head then
+
+                if not rootPart or not head then
+                    -- Skip rest of loop iteration
+                else
                     local onTeam = IsOnTeam(player)
-                    
+
                     if (Settings.TeamCheck and onTeam and not Settings.ShowTeam) then
                         for _, obj in pairs(objects) do
                             obj.Visible = false
                         end
-                        
+
                         if SkeletonObjects[player] then
                             for _, obj in pairs(SkeletonObjects[player]) do
                                 obj.Visible = false
@@ -635,46 +317,46 @@ local function UpdateEsp()
                             for _, obj in pairs(objects) do
                                 obj.Visible = false
                             end
-                            
+
                             if SkeletonObjects[player] then
                                 for _, obj in pairs(SkeletonObjects[player]) do
                                     obj.Visible = false
                                 end
                             end
                         else
-                            local color = Settings.CustomEspColor
+                            local color = ESP_COLOR
                             if Settings.TeamColor and onTeam then
-                                color = Settings.CustomTeamEspColor
+                                color = ESP_TEAM_COLOR
                             end
-                            
+
                             local isVisible = IsVisible(character, rootPart)
-                            
+
                             -- Update ESP elements based on settings
                             local rootPos, rootOnScreen, rootDepth = GetVector2FromVector3(rootPart.Position)
                             local headPos, headOnScreen = GetVector2FromVector3(head.Position + Vector3.new(0, 0.5, 0))
-                            
+
                             if rootOnScreen then
                                 local sizeX = 2000 / rootDepth
                                 local sizeY = 2350 / rootDepth
-                                
+
                                 -- Update Box ESP
                                 objects.Box.Visible = Settings.EspEnabled and Settings.BoxEsp
                                 objects.Box.Size = Vector2.new(sizeX, sizeY)
                                 objects.Box.Position = rootPos - Vector2.new(sizeX / 2, sizeY / 2)
                                 objects.Box.Color = color
-                                
+
                                 -- Update Name ESP
                                 objects.Name.Visible = Settings.EspEnabled and Settings.NameEsp
                                 objects.Name.Position = Vector2.new(rootPos.X, (rootPos.Y - sizeY / 2) - 15)
                                 objects.Name.Text = player.Name
                                 objects.Name.Color = color
-                                
+
                                 -- Update Distance ESP
                                 objects.Distance.Visible = Settings.EspEnabled and Settings.DistanceEsp
                                 objects.Distance.Position = Vector2.new(rootPos.X, (rootPos.Y + sizeY / 2) + 5)
                                 objects.Distance.Text = math.floor(distance) .. "m"
                                 objects.Distance.Color = color
-                                
+
                                 -- Update Head Dot ESP
                                 if headOnScreen then
                                     objects.HeadDot.Visible = Settings.EspEnabled and Settings.HeadDotEsp
@@ -683,13 +365,13 @@ local function UpdateEsp()
                                 else
                                     objects.HeadDot.Visible = false
                                 end
-                                
+
                                 -- Update Tracer ESP
                                 objects.Tracer.Visible = Settings.EspEnabled and Settings.TracerEsp
                                 objects.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                                 objects.Tracer.To = Vector2.new(rootPos.X, rootPos.Y + sizeY / 2)
                                 objects.Tracer.Color = color
-                                
+
                                 -- Update Skeleton ESP
                                 if Settings.EspEnabled and Settings.SkeletonEsp then
                                     local upperTorso = character:FindFirstChild("UpperTorso")
@@ -702,7 +384,7 @@ local function UpdateEsp()
                                     local rightUpperArm = character:FindFirstChild("RightUpperArm")
                                     local leftLowerArm = character:FindFirstChild("LeftLowerArm")
                                     local rightLowerArm = character:FindFirstChild("RightLowerArm")
-                                    
+
                                     if upperTorso and lowerTorso and leftUpperLeg and rightUpperLeg and leftLowerLeg and rightLowerLeg and leftUpperArm and rightUpperArm and leftLowerArm and rightLowerArm then
                                         local skeletonLines = {
                                             {SkeletonObjects[player].Head_UpperTorso, head, upperTorso},
@@ -716,12 +398,12 @@ local function UpdateEsp()
                                             {SkeletonObjects[player].LeftUpperArm_LeftLowerArm, leftUpperArm, leftLowerArm},
                                             {SkeletonObjects[player].RightUpperArm_RightLowerArm, rightUpperArm, rightLowerArm}
                                         }
-                                        
+
                                         for _, data in ipairs(skeletonLines) do
                                             local line, part1, part2 = unpack(data)
                                             local pos1, onScreen1 = GetVector2FromVector3(part1.Position)
                                             local pos2, onScreen2 = GetVector2FromVector3(part2.Position)
-                                            
+
                                             if onScreen1 and onScreen2 then
                                                 line.Visible = true
                                                 line.From = pos1
@@ -741,16 +423,6 @@ local function UpdateEsp()
                                         obj.Visible = false
                                     end
                                 end
-                            else
-                                for _, obj in pairs(objects) do
-                                    obj.Visible = false
-                                end
-                                
-                                if SkeletonObjects[player] then
-                                    for _, obj in pairs(SkeletonObjects[player]) do
-                                        obj.Visible = false
-                                    end
-                                end
                             end
                         end
                     end
@@ -758,50 +430,35 @@ local function UpdateEsp()
             end
         end
     end
-end
--- Aimbot Functions
-local function IsPlayerIgnored(playerName)
-    return table.find(Settings.IgnoredPlayers, playerName) ~= nil
-end
 
+-- Aimbot Functions
 local function GetClosestPlayerToMouse()
     local closest = nil
     local shortestDistance = math.huge
-    
+
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
-            -- Only process non-ignored players
-            if not IsPlayerIgnored(player.Name) then
-                -- Check if character is valid and alive
-                local character = player.Character
-                if character and IsAlive(player) then
-                    -- Check team settings
-                    local onTeam = IsOnTeam(player)
-                    if not (Settings.TeamCheckAimbot and onTeam) then
-                        -- Check if aim part exists
-                        local part = character:FindFirstChild(Settings.AimPart)
-                        if part then
-                            -- Check wall visibility if enabled
-                            if not (Settings.WallCheck and not IsVisible(character, part)) then
-                                -- Verify target is on screen
-                                local pos, onScreen = GetVector2FromVector3(part.Position)
-                                if onScreen then
-                                    -- Verify target is within max distance
-                                    local distance = GetDistanceFromCamera(part.Position)
-                                    if distance <= Settings.MaxDistance then
-                                        -- Verify target is within FOV
-                                        local mouseDist = (pos - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-                                        if mouseDist <= Settings.AimFov then
-                                            -- Update if this is the closest target so far
-                                            if mouseDist < shortestDistance then
-                                                shortestDistance = mouseDist
-                                                closest = {
-                                                    Player = player,
-                                                    Character = character,
-                                                    Part = part,
-                                                    Position = pos
-                                                }
-                                            end
+            local character = player.Character
+            if character and IsAlive(player) then
+                local onTeam = IsOnTeam(player)
+                if not (Settings.TeamCheckAimbot and onTeam) then
+                    local part = character:FindFirstChild(Settings.AimPart)
+                    if part then
+                        if not (Settings.WallCheck and not IsVisible(character, part)) then
+                            local pos, onScreen = GetVector2FromVector3(part.Position)
+                            if onScreen then
+                                local distance = GetDistanceFromCamera(part.Position)
+                                if distance <= Settings.MaxDistance then
+                                    local mouseDist = (pos - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                                    if mouseDist <= Settings.AimFov then
+                                        if mouseDist < shortestDistance then
+                                            shortestDistance = mouseDist
+                                            closest = {
+                                                Player = player,
+                                                Character = character,
+                                                Part = part,
+                                                Position = pos
+                                            }
                                         end
                                     end
                                 end
@@ -812,369 +469,558 @@ local function GetClosestPlayerToMouse()
             end
         end
     end
-    
+
     return closest
 end
 
-local function CalculatePrediction(part)
-    -- Calculate predicted position based on target velocity with improved accuracy
-    if not Settings.PredictionEnabled then
-        return part.Position
-    end
-    
-    -- Get target velocity and calculate ping/latency compensation
-    local targetVelocity = part.Velocity
-    local predictionAmount = Settings.PredictionAmount
-    
-    -- Use advanced prediction based on distance and velocity magnitude
-    local distance = (Camera.CFrame.Position - part.Position).Magnitude
-    local pingFactor = math.clamp(distance / 100, 1, 3) -- Adjust prediction based on distance
-    
-    -- Calculate velocity magnitude for speed-based prediction adjustment
-    local speedFactor = math.clamp(targetVelocity.Magnitude / 16, 0.5, 2)
-    
-    -- Apply additional gravity prediction for jumping/falling targets
-    local gravityCompensation = Vector3.new(0, 0.03 * predictionAmount, 0)
-    
-    -- Calculate the predicted position with enhanced accuracy
-    return part.Position + (targetVelocity * predictionAmount * pingFactor * speedFactor) + gravityCompensation
+local function PredictPosition(target)
+    local character = target.Character
+    local humanoid = character and character:FindFirstChild("Humanoid")
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+
+    if not (humanoid and rootPart) then return target.Part.Position end
+
+    -- Get target velocity
+    local velocity = rootPart.Velocity
+    local speed = velocity.Magnitude
+
+    -- Only predict if target is moving significantly
+    if speed < 1 then return target.Part.Position end
+
+    -- Calculate time to hit based on distance
+    local distance = (target.Part.Position - Camera.CFrame.Position).Magnitude
+    local timeToHit = distance / Settings.BulletSpeed
+
+    -- Predict future position
+    local predictedPosition = target.Part.Position + (velocity * timeToHit)
+
+    -- Apply gravity compensation if needed
+    local gravity = Vector3.new(0, -Settings.GravityStrength, 0)
+    predictedPosition = predictedPosition + (0.5 * gravity * timeToHit * timeToHit) * Settings.DropCompensation
+
+    return predictedPosition
 end
 
 local function AimAt(position)
     if Settings.AimType == "Camera" then
-        -- Apply prediction to improve tracking of moving targets
-        local predictedPos = CalculatePrediction(position.Part)
+        local targetPos = PredictPosition(position)
         local cameraPos = Camera.CFrame.Position
-        local newCFrame = CFrame.new(cameraPos, predictedPos)
-        
+        local newCFrame = CFrame.new(cameraPos, targetPos)
+
         if Settings.AimSmoothing then
             Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Settings.Smoothness)
         else
             Camera.CFrame = newCFrame
         end
     elseif Settings.AimType == "Mouse" then
-        -- Calculate prediction for mouse aim
-        local predictedPos = CalculatePrediction(position.Part)
-        local predictedScreenPos, onScreen = GetVector2FromVector3(predictedPos)
-        
-        if not onScreen then return end
-        
-        local x, y = predictedScreenPos.X, predictedScreenPos.Y
-        
+        local predictedPos = PredictPosition(position)
+        local screenPos, onScreen = Camera:WorldToViewportPoint(predictedPos)
+        local x, y = screenPos.X, screenPos.Y
+
         if Settings.AimSmoothing then
             local currentX, currentY = Mouse.X, Mouse.Y
             x = currentX + (x - currentX) * Settings.Smoothness
             y = currentY + (y - currentY) * Settings.Smoothness
         end
-        
-        mousemoveabs(x, y)
-    end
-end
 
--- Helper function for security bypass
-local function securityBypass()
-    local bypass = false
-    
-    -- Method 1: Standard protection bypass
-    pcall(function()
-        if syn and syn.protect_gui then
-            bypass = true
-            return syn.protect_gui
+        if onScreen then
+            mousemoveabs(x, y)
         end
-    end)
-    
-    -- Method 2: Alternative protection method (Synapse X, Script-Ware, Krnl)
-    if not bypass then
-        pcall(function()
-            if get_hidden_gui or gethui then
-                bypass = true
-                return get_hidden_gui or gethui
-            end
-        end)
     end
-    
-    -- Method 3: Check for secure parent
-    if not bypass then
-        pcall(function()
-            if COREGUI_PROTECTION then
-                bypass = true
-                return COREGUI_PROTECTION 
-            end
-        end)
-    end
-    
-    return bypass
 end
 
 -- GUI Creation
 local function CreateGui()
-    -- Create the ScreenGui with all settings for maximum visibility
+    -- Main UI Frame
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "AimbotESPGui"
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Enabled = true -- Ensure it's always visible
-    ScreenGui.IgnoreGuiInset = true -- Important for full screen coverage
-    
-    -- Try to apply any available protection bypass
-    local bypass = securityBypass()
-    local success = false
-    
-    -- Best approach for exploit GUI visibility - try multiple paths
-    local methods = {
-        function() -- Method 1: Direct CoreGui with protection
-            if syn and syn.protect_gui then 
-                syn.protect_gui(ScreenGui)
-                ScreenGui.Parent = game:GetService("CoreGui")
-                return true
-            end
-            return false
-        end,
-        
-        function() -- Method 2: Hidden UI access
-            local hiddenUI = (get_hidden_gui or gethui or cloneref and cloneref(game:GetService("CoreGui")))
-            if hiddenUI then
-                ScreenGui.Parent = hiddenUI
-                return true
-            end
-            return false
-        end,
-        
-        function() -- Method 3: Standard CoreGui
-            ScreenGui.Parent = game:GetService("CoreGui")
-            return ScreenGui.Parent == game:GetService("CoreGui")
-        end,
-        
-        function() -- Method 4: PlayerGui fallback
-            ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-            return ScreenGui.Parent == game.Players.LocalPlayer.PlayerGui
-        end,
-        
-        function() -- Method 5: Last resort - parent to something visible
-            for _, v in pairs({game:GetService("Players").LocalPlayer.PlayerGui, game:GetService("CoreGui")}) do
-                if v then
-                    ScreenGui.Parent = v
-                    return true
-                end
-            end
-            return false
-        end
-    }
-    
-    -- Try each method until one works
-    for i, method in ipairs(methods) do
-        success = pcall(function() return method() end)
-        if success then
-            print("GUI parented successfully with method " .. i)
-            break
-        end
-    end
-    
-    if not success then
-        print("WARNING: Failed to parent GUI to any location! GUI may not be visible.")
-        -- Try one more time with PlayerGui
-        pcall(function()
-            ScreenGui.Parent = game.Players.LocalPlayer.PlayerGui
-        end)
-    end
-    
-    -- Store the ScreenGui reference globally so we can access it later
-    MainGui = ScreenGui
-    
-    -- Emergency notification
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "GUI Ready", 
-            Text = "Press " .. Settings.ToggleGuiKey .. " if GUI is not visible",
-            Duration = 10
-        })
-    end)
-    
+    ScreenGui.Parent = game.CoreGui
+
+    -- Main Frame with improved design
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 300, 0, 350)
-    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    MainFrame.Size = UDim2.new(0, 320, 0, 370) -- Slightly bigger
+    MainFrame.Position = UDim2.new(0.5, -160, 0.5, -185)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30) -- Darker, more modern background
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
     MainFrame.Draggable = true
     MainFrame.Parent = ScreenGui
-    
-    -- Title with improved design
+
+    -- Add rounded corners to main frame
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 8)
+    MainCorner.Parent = MainFrame
+
+    -- Add shadow effect
+    local MainShadow = Instance.new("ImageLabel")
+    MainShadow.Name = "Shadow"
+    MainShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    MainShadow.BackgroundTransparency = 1
+    MainShadow.Position = UDim2.new(0.5, 0, 0.5, 4)
+    MainShadow.Size = UDim2.new(1, 20, 1, 20)
+    MainShadow.ZIndex = -1
+    MainShadow.Image = "rbxassetid://1316045217"
+    MainShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    MainShadow.ImageTransparency = 0.6
+    MainShadow.ScaleType = Enum.ScaleType.Slice
+    MainShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    MainShadow.Parent = MainFrame
+
+    -- Create a gradient background for the main frame
+    local MainGradient = Instance.new("UIGradient")
+    MainGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 45)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30))
+    })
+    MainGradient.Rotation = 45
+    MainGradient.Parent = MainFrame
+
+    -- Title bar with improved design
     local TitleFrame = Instance.new("Frame")
     TitleFrame.Name = "TitleFrame"
-    TitleFrame.Size = UDim2.new(1, 0, 0, 30)
-    TitleFrame.BackgroundColor3 = GUI_ACCENT_COLOR
+    TitleFrame.Size = UDim2.new(1, 0, 0, 40) -- Taller title bar
+    TitleFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 60) -- More vibrant color
     TitleFrame.BorderSizePixel = 0
     TitleFrame.Parent = MainFrame
-    
-    -- Add gradient to title for better visual appeal
+
+    -- Add rounded corners to top of title frame only
+    local TitleCorner = Instance.new("UICorner")
+    TitleCorner.CornerRadius = UDim.new(0, 8)
+    TitleCorner.Parent = TitleFrame
+
+    -- Create a gradient for the title bar
     local TitleGradient = Instance.new("UIGradient")
     TitleGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, GUI_ACCENT_COLOR),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(GUI_ACCENT_COLOR.R * 0.8, GUI_ACCENT_COLOR.G * 0.8, GUI_ACCENT_COLOR.B * 0.8))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 100)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 40, 80))
     })
     TitleGradient.Rotation = 90
     TitleGradient.Parent = TitleFrame
-    
+
+    -- Logo/Icon for the GUI
+    local LogoIcon = Instance.new("ImageLabel")
+    LogoIcon.Name = "LogoIcon"
+    LogoIcon.Size = UDim2.new(0, 24, 0, 24)
+    LogoIcon.Position = UDim2.new(0, 10, 0.5, -12)
+    LogoIcon.BackgroundTransparency = 1
+    LogoIcon.Image = "rbxassetid://6031280882" -- Crosshair icon
+    LogoIcon.ImageColor3 = Color3.fromRGB(255, 100, 100) -- Red tint
+    LogoIcon.Parent = TitleFrame
+
+    -- Add glow effect to logo
+    local LogoGlow = Instance.new("ImageLabel")
+    LogoGlow.Name = "LogoGlow"
+    LogoGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+    LogoGlow.BackgroundTransparency = 1
+    LogoGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    LogoGlow.Size = UDim2.new(1.5, 0, 1.5, 0)
+    LogoGlow.ZIndex = -1
+    LogoGlow.Image = "rbxassetid://1316045217"
+    LogoGlow.ImageColor3 = Color3.fromRGB(255, 100, 100)
+    LogoGlow.ImageTransparency = 0.7
+    LogoGlow.Parent = LogoIcon
+
+    -- Animate the glow
+    spawn(function()
+        while wait() do
+            for i = 0.7, 0.9, 0.01 do
+                if LogoGlow then
+                    LogoGlow.ImageTransparency = i
+                    wait(0.05)
+                else
+                    break
+                end
+            end
+            for i = 0.9, 0.7, -0.01 do
+                if LogoGlow then
+                    LogoGlow.ImageTransparency = i
+                    wait(0.05)
+                else
+                    break
+                end
+            end
+        end
+    end)
+
+    -- Title text with better styling
     local TitleText = Instance.new("TextLabel")
     TitleText.Name = "TitleText"
-    TitleText.Size = UDim2.new(1, 0, 1, 0)
+    TitleText.Size = UDim2.new(1, -90, 1, 0) -- Leave space for logo and close button
+    TitleText.Position = UDim2.new(0, 45, 0, 0) -- Position after logo
     TitleText.BackgroundTransparency = 1
-    TitleText.Text = "Advanced Aimbot & ESP"
-    TitleText.Font = Enum.Font.GothamBold
+    TitleText.Text = "PHANTOM AIMBOT"
+    TitleText.Font = Enum.Font.GothamBold -- Better font
     TitleText.TextSize = 18
     TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TitleText.TextXAlignment = Enum.TextXAlignment.Left
     TitleText.Parent = TitleFrame
-    
-    -- Close Button
-    local CloseButton = Instance.new("TextButton")
+
+    -- Subtitle text
+    local SubtitleText = Instance.new("TextLabel")
+    SubtitleText.Name = "SubtitleText"
+    SubtitleText.Size = UDim2.new(0, 80, 0, 20)
+    SubtitleText.Position = UDim2.new(0, 45, 0.5, 3)
+    SubtitleText.BackgroundTransparency = 1
+    SubtitleText.Text = "v2.0 PRO"
+    SubtitleText.Font = Enum.Font.Gotham
+    SubtitleText.TextSize = 12
+    SubtitleText.TextColor3 = Color3.fromRGB(255, 100, 100) -- Accent color
+    SubtitleText.TextXAlignment = Enum.TextXAlignment.Left
+    SubtitleText.Parent = TitleFrame
+
+    -- Improved Close Button
+    local CloseButton = Instance.new("ImageButton")
     CloseButton.Name = "CloseButton"
     CloseButton.Size = UDim2.new(0, 30, 0, 30)
-    CloseButton.Position = UDim2.new(1, -30, 0, 0)
+    CloseButton.Position = UDim2.new(1, -35, 0.5, -15)
     CloseButton.BackgroundTransparency = 1
-    CloseButton.Text = "X"
-    CloseButton.Font = Enum.Font.SourceSansBold
-    CloseButton.TextSize = 18
-    CloseButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+    CloseButton.Image = "rbxassetid://6031094678" -- 'X' icon
+    CloseButton.ImageColor3 = Color3.fromRGB(255, 100, 100)
     CloseButton.Parent = TitleFrame
-    
+
+    -- Create hover effect for close button
+    CloseButton.MouseEnter:Connect(function()
+        TweenService:Create(CloseButton, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 50, 50)}):Play()
+    end)
+
+    CloseButton.MouseLeave:Connect(function()
+        TweenService:Create(CloseButton, TweenInfo.new(0.2), {ImageColor3 = Color3.fromRGB(255, 100, 100)}):Play()
+    end)
+
     CloseButton.MouseButton1Click:Connect(function()
+        -- Add a close animation
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+        wait(0.3)
         ScreenGui.Enabled = false
         GuiVisible = false
     end)
-    
-    -- Tabs Frame
+
+    -- Tabs Container with improved design
     local TabsFrame = Instance.new("Frame")
     TabsFrame.Name = "TabsFrame"
-    TabsFrame.Size = UDim2.new(1, 0, 0, 30)
-    TabsFrame.Position = UDim2.new(0, 0, 0, 30)
-    TabsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    TabsFrame.Size = UDim2.new(1, 0, 0, 35) -- Taller tabs
+    TabsFrame.Position = UDim2.new(0, 0, 0, 40)
+    TabsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     TabsFrame.BorderSizePixel = 0
     TabsFrame.Parent = MainFrame
-    
-    -- Content Frame
+
+    -- Content Frame with improved style
     local ContentFrame = Instance.new("Frame")
     ContentFrame.Name = "ContentFrame"
-    ContentFrame.Size = UDim2.new(1, 0, 1, -60)
-    ContentFrame.Position = UDim2.new(0, 0, 0, 60)
-    ContentFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    ContentFrame.Size = UDim2.new(1, 0, 1, -75)
+    ContentFrame.Position = UDim2.new(0, 0, 0, 75)
+    ContentFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     ContentFrame.BorderSizePixel = 0
     ContentFrame.Parent = MainFrame
-    
-    -- ESP Tab Button
+
+    -- Add a subtle inner border to content frame
+    local ContentBorder = Instance.new("Frame")
+    ContentBorder.Name = "ContentBorder"
+    ContentBorder.Size = UDim2.new(1, -10, 1, -10)
+    ContentBorder.Position = UDim2.new(0, 5, 0, 5)
+    ContentBorder.BackgroundTransparency = 0.9
+    ContentBorder.BackgroundColor3 = Color3.fromRGB(60, 60, 100)
+    ContentBorder.BorderSizePixel = 0
+    ContentBorder.Parent = ContentFrame
+
+    local ContentCorner = Instance.new("UICorner")
+    ContentCorner.CornerRadius = UDim.new(0, 6)
+    ContentCorner.Parent = ContentBorder
+
+    -- Improved ESP Tab Button
     local EspTabButton = Instance.new("TextButton")
     EspTabButton.Name = "EspTabButton"
-    EspTabButton.Size = UDim2.new(0.5, 0, 1, 0)
-    EspTabButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    EspTabButton.Size = UDim2.new(0.5, -5, 1, -6)
+    EspTabButton.Position = UDim2.new(0, 3, 0, 3)
+    EspTabButton.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
     EspTabButton.BorderSizePixel = 0
     EspTabButton.Text = "ESP"
-    EspTabButton.Font = Enum.Font.SourceSansBold
-    EspTabButton.TextSize = 16
+    EspTabButton.Font = Enum.Font.GothamSemibold
+    EspTabButton.TextSize = 14
     EspTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     EspTabButton.Parent = TabsFrame
-    
-    -- Aimbot Tab Button
+
+    -- Add a glow effect to active tab
+    local EspTabGlow = Instance.new("ImageLabel")
+    EspTabGlow.Name = "EspTabGlow"
+    EspTabGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+    EspTabGlow.BackgroundTransparency = 1
+    EspTabGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    EspTabGlow.Size = UDim2.new(1, 10, 1, 10)
+    EspTabGlow.ZIndex = -1
+    EspTabGlow.Image = "rbxassetid://1316045217"
+    EspTabGlow.ImageColor3 = Color3.fromRGB(80, 80, 150)
+    EspTabGlow.ImageTransparency = 0.7
+    EspTabGlow.ScaleType = Enum.ScaleType.Slice
+    EspTabGlow.SliceCenter = Rect.new(10, 10, 118, 118)
+    EspTabGlow.Parent = EspTabButton
+
+    -- Corner radius for tab buttons
+    local EspTabCorner = Instance.new("UICorner")
+    EspTabCorner.CornerRadius = UDim.new(0, 6)
+    EspTabCorner.Parent = EspTabButton
+
+    -- Improved Aimbot Tab Button
     local AimbotTabButton = Instance.new("TextButton")
     AimbotTabButton.Name = "AimbotTabButton"
-    AimbotTabButton.Size = UDim2.new(0.5, 0, 1, 0)
-    AimbotTabButton.Position = UDim2.new(0.5, 0, 0, 0)
-    AimbotTabButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    AimbotTabButton.Size = UDim2.new(0.5, -5, 1, -6)
+    AimbotTabButton.Position = UDim2.new(0.5, 2, 0, 3)
+    AimbotTabButton.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
     AimbotTabButton.BorderSizePixel = 0
-    AimbotTabButton.Text = "Aimbot"
-    AimbotTabButton.Font = Enum.Font.SourceSansBold
-    AimbotTabButton.TextSize = 16
-    AimbotTabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+    AimbotTabButton.Text = "AIMBOT"
+    AimbotTabButton.Font = Enum.Font.GothamSemibold
+    AimbotTabButton.TextSize = 14
+    AimbotTabButton.TextColor3 = Color3.fromRGB(180, 180, 200)
     AimbotTabButton.Parent = TabsFrame
-    
-    -- ESP Settings Frame
+
+    -- Add corner radius to aimbot tab
+    local AimbotTabCorner = Instance.new("UICorner")
+    AimbotTabCorner.CornerRadius = UDim.new(0, 6)
+    AimbotTabCorner.Parent = AimbotTabButton
+
+    -- Enhanced ESP Settings Frame
     local EspSettingsFrame = Instance.new("ScrollingFrame")
     EspSettingsFrame.Name = "EspSettingsFrame"
-    EspSettingsFrame.Size = UDim2.new(1, -20, 1, -20)
-    EspSettingsFrame.Position = UDim2.new(0, 10, 0, 10)
+    EspSettingsFrame.Size = UDim2.new(1, -30, 1, -20)
+    EspSettingsFrame.Position = UDim2.new(0, 15, 0, 10)
     EspSettingsFrame.BackgroundTransparency = 1
     EspSettingsFrame.BorderSizePixel = 0
-    EspSettingsFrame.ScrollBarThickness = 5
-    EspSettingsFrame.CanvasSize = UDim2.new(0, 0, 0, 400)
+    EspSettingsFrame.ScrollBarThickness = 4
+    EspSettingsFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 150)    EspSettingsFrame.CanvasSize = UDim2.new(0, 0, 0, 450)
     EspSettingsFrame.Visible = true
     EspSettingsFrame.Parent = ContentFrame
-    
-    -- Aimbot Settings Frame
+
+    -- Enhanced Aimbot Settings Frame
     local AimbotSettingsFrame = Instance.new("ScrollingFrame")
     AimbotSettingsFrame.Name = "AimbotSettingsFrame"
-    AimbotSettingsFrame.Size = UDim2.new(1, -20, 1, -20)
-    AimbotSettingsFrame.Position = UDim2.new(0, 10, 0, 10)
+    AimbotSettingsFrame.Size = UDim2.new(1, -30, 1, -20)
+    AimbotSettingsFrame.Position = UDim2.new(0, 15, 0, 10)
     AimbotSettingsFrame.BackgroundTransparency = 1
     AimbotSettingsFrame.BorderSizePixel = 0
-    AimbotSettingsFrame.ScrollBarThickness = 5
-    AimbotSettingsFrame.CanvasSize = UDim2.new(0, 0, 0, 400)
+    AimbotSettingsFrame.ScrollBarThickness = 4
+    AimbotSettingsFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 150)
+    AimbotSettingsFrame.CanvasSize = UDim2.new(0, 0, 0, 450)
     AimbotSettingsFrame.Visible = false
     AimbotSettingsFrame.Parent = ContentFrame
-    
-    -- Tab switching
+
+    -- Create Aimbot Tab Glow (initially hidden)
+    local AimbotTabGlow = Instance.new("ImageLabel")
+    AimbotTabGlow.Name = "AimbotTabGlow"
+    AimbotTabGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+    AimbotTabGlow.BackgroundTransparency = 1
+    AimbotTabGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    AimbotTabGlow.Size = UDim2.new(1, 10, 1, 10)
+    AimbotTabGlow.ZIndex = -1
+    AimbotTabGlow.Image = "rbxassetid://1316045217"
+    AimbotTabGlow.ImageColor3 = Color3.fromRGB(80, 80, 150)
+    AimbotTabGlow.ImageTransparency = 1 -- Start hidden
+    AimbotTabGlow.ScaleType = Enum.ScaleType.Slice
+    AimbotTabGlow.SliceCenter = Rect.new(10, 10, 118, 118)
+    AimbotTabGlow.Parent = AimbotTabButton
+
+    -- Improved tab switching with animations
     EspTabButton.MouseButton1Click:Connect(function()
-        EspTabButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        AimbotTabButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        EspTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        AimbotTabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+        -- ESP tab animation
+        TweenService:Create(EspTabButton, TweenInfo.new(0.3), {
+            BackgroundColor3 = Color3.fromRGB(50, 50, 80),
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }):Play()
+        TweenService:Create(EspTabGlow, TweenInfo.new(0.3), {
+            ImageTransparency = 0.7
+        }):Play()
+
+        -- Aimbot tab animation
+        TweenService:Create(AimbotTabButton, TweenInfo.new(0.3), {
+            BackgroundColor3 = Color3.fromRGB(35, 35, 50),
+            TextColor3 = Color3.fromRGB(180, 180, 200)
+        }):Play()
+        TweenService:Create(AimbotTabGlow, TweenInfo.new(0.3), {
+            ImageTransparency = 1
+        }):Play()
+
+        -- Content switching with slide animation
+        AimbotSettingsFrame.Position = UDim2.new(1, 15, 0, 10) -- Move off screen to the right
+        EspSettingsFrame.Position = UDim2.new(1, 15, 0, 10) -- Start offscreen
         EspSettingsFrame.Visible = true
+
+        -- Slide in animation
+        TweenService:Create(EspSettingsFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0, 15, 0, 10)
+        }):Play()
+
+        wait(0.4) -- Wait for animation to complete
         AimbotSettingsFrame.Visible = false
     end)
-    
+
     AimbotTabButton.MouseButton1Click:Connect(function()
-        EspTabButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        AimbotTabButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        EspTabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-        AimbotTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        EspSettingsFrame.Visible = false
+        -- ESP tab animation
+        TweenService:Create(EspTabButton, TweenInfo.new(0.3), {
+            BackgroundColor3 = Color3.fromRGB(35, 35, 50),
+            TextColor3 = Color3.fromRGB(180, 180, 200)
+        }):Play()
+        TweenService:Create(EspTabGlow, TweenInfo.new(0.3), {
+            ImageTransparency = 1
+        }):Play()
+
+        -- Aimbot tab animation
+        TweenService:Create(AimbotTabButton, TweenInfo.new(0.3), {
+            BackgroundColor3 = Color3.fromRGB(50, 50, 80),
+            TextColor3 = Color3.fromRGB(255, 255, 255)
+        }):Play()
+        TweenService:Create(AimbotTabGlow, TweenInfo.new(0.3), {
+            ImageTransparency = 0.7
+        }):Play()
+
+        -- Content switching with slide animation
+        EspSettingsFrame.Position = UDim2.new(1, 15, 0, 10) -- Move off screen to the right
+        AimbotSettingsFrame.Position = UDim2.new(1, 15, 0, 10) -- Start offscreen
         AimbotSettingsFrame.Visible = true
+
+        -- Slide in animation
+        TweenService:Create(AimbotSettingsFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0, 15, 0, 10)
+        }):Play()
+
+        wait(0.4) -- Wait for animation to complete
+        EspSettingsFrame.Visible = false
     end)
-    
-    -- Function to create toggle button
+
+    -- Add hover effects to tabs
+    EspTabButton.MouseEnter:Connect(function()
+        if EspSettingsFrame.Visible then return end -- Don't animate if already selected
+        TweenService:Create(EspTabButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        }):Play()
+    end)
+
+    EspTabButton.MouseLeave:Connect(function()
+        if EspSettingsFrame.Visible then return end -- Don't animate if already selected
+        TweenService:Create(EspTabButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+        }):Play()
+    end)
+
+    AimbotTabButton.MouseEnter:Connect(function()
+        if AimbotSettingsFrame.Visible then return end -- Don't animate if already selected
+        TweenService:Create(AimbotTabButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        }):Play()
+    end)
+
+    AimbotTabButton.MouseLeave:Connect(function()
+        if AimbotSettingsFrame.Visible then return end -- Don't animate if already selected
+        TweenService:Create(AimbotTabButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+        }):Play()
+    end)
+
+    -- Function to create enhanced toggle button
     local function CreateToggle(parent, position, text, initialValue, callback)
         local ToggleFrame = Instance.new("Frame")
         ToggleFrame.Name = text .. "ToggleFrame"
-        ToggleFrame.Size = UDim2.new(1, 0, 0, 30)
+        ToggleFrame.Size = UDim2.new(1, 0, 0, 35) -- Taller for better visibility
         ToggleFrame.Position = UDim2.new(0, 0, 0, position)
         ToggleFrame.BackgroundTransparency = 1
         ToggleFrame.Parent = parent
-        
+
+        -- Background for the toggle item (with subtle hover effect)
+        local ItemBackground = Instance.new("Frame")
+        ItemBackground.Name = "ItemBackground"
+        ItemBackground.Size = UDim2.new(1, 0, 1, -5)
+        ItemBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        ItemBackground.BackgroundTransparency = 1 -- Start transparent, will show on hover
+        ItemBackground.BorderSizePixel = 0
+        ItemBackground.Parent = ToggleFrame
+
+        -- Add rounded corners to background
+        local BgCorner = Instance.new("UICorner")
+        BgCorner.CornerRadius = UDim.new(0, 6)
+        BgCorner.Parent = ItemBackground
+
+        -- Enhanced toggle label
         local ToggleLabel = Instance.new("TextLabel")
         ToggleLabel.Name = "ToggleLabel"
         ToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+        ToggleLabel.Position = UDim2.new(0, 10, 0, 0) -- Add some padding
         ToggleLabel.BackgroundTransparency = 1
         ToggleLabel.Text = text
-        ToggleLabel.Font = Enum.Font.SourceSans
-        ToggleLabel.TextSize = 16
+        ToggleLabel.Font = Enum.Font.GothamSemibold -- Better font
+        ToggleLabel.TextSize = 14
         ToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
         ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
         ToggleLabel.Parent = ToggleFrame
-        
+
+        -- Optional icon for toggle (can be customized per toggle type)
+        local ToggleIcon = Instance.new("ImageLabel")
+        ToggleIcon.Name = "ToggleIcon"
+        ToggleIcon.Size = UDim2.new(0, 16, 0, 16)
+        ToggleIcon.Position = UDim2.new(0, 8, 0.5, -8)
+        ToggleIcon.BackgroundTransparency = 1
+        ToggleIcon.Image = "rbxassetid://6031090990" -- Settings icon as default
+        ToggleIcon.ImageColor3 = Color3.fromRGB(180, 180, 200)
+        ToggleIcon.ImageTransparency = 0.5
+        ToggleIcon.Visible = false -- Disabled by default, enable for specific toggles if needed
+        ToggleIcon.Parent = ToggleFrame
+
+        -- Enhanced toggle switch
         local ToggleButton = Instance.new("Frame")
         ToggleButton.Name = "ToggleButton"
-        ToggleButton.Size = UDim2.new(0, 40, 0, 20)
-        ToggleButton.Position = UDim2.new(1, -50, 0.5, -10)
-        ToggleButton.BackgroundColor3 = initialValue and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(100, 100, 100)
+        ToggleButton.Size = UDim2.new(0, 44, 0, 22) -- Slightly larger
+        ToggleButton.Position = UDim2.new(1, -54, 0.5, -11)
+        ToggleButton.BackgroundColor3 = initialValue and Color3.fromRGB(60, 120, 255) or Color3.fromRGB(70, 70, 90)
         ToggleButton.BorderSizePixel = 0
         ToggleButton.Parent = ToggleFrame
-        
+
+        -- Add subtle glow to active toggle
+        local ButtonGlow = Instance.new("ImageLabel")
+        ButtonGlow.Name = "ButtonGlow"
+        ButtonGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+        ButtonGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+        ButtonGlow.Size = UDim2.new(1.2, 0, 1.5, 0)
+        ButtonGlow.BackgroundTransparency = 1
+        ButtonGlow.Image = "rbxassetid://1316045217"
+        ButtonGlow.ImageColor3 = Color3.fromRGB(60, 120, 255)
+        ButtonGlow.ImageTransparency = initialValue and 0.7 or 1
+        ButtonGlow.ScaleType = Enum.ScaleType.Slice
+        ButtonGlow.SliceCenter = Rect.new(10, 10, 118, 118)
+        ButtonGlow.ZIndex = 0
+        ButtonGlow.Parent = ToggleButton
+
+        -- Enhanced toggle circle
         local ToggleCircle = Instance.new("Frame")
         ToggleCircle.Name = "ToggleCircle"
-        ToggleCircle.Size = UDim2.new(0, 16, 0, 16)
-        ToggleCircle.Position = UDim2.new(initialValue and 0.6 or 0, 2, 0, 2)
+        ToggleCircle.Size = UDim2.new(0, 18, 0, 18) -- Slightly larger
+        ToggleCircle.Position = UDim2.new(initialValue and 0.55 or 0, 2, 0, 2)
         ToggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         ToggleCircle.BorderSizePixel = 0
-        
+
+        -- Add shadow to circle
+        local CircleShadow = Instance.new("ImageLabel")
+        CircleShadow.Name = "CircleShadow"
+        CircleShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+        CircleShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+        CircleShadow.Size = UDim2.new(1.2, 0, 1.2, 0)
+        CircleShadow.BackgroundTransparency = 1
+        CircleShadow.Image = "rbxassetid://1316045217"
+        CircleShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+        CircleShadow.ImageTransparency = 0.8
+        CircleShadow.ScaleType = Enum.ScaleType.Slice
+        CircleShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+        CircleShadow.ZIndex = 0
+        CircleShadow.Parent = ToggleCircle
+
         local UICorner = Instance.new("UICorner")
         UICorner.CornerRadius = UDim.new(1, 0)
         UICorner.Parent = ToggleCircle
-        
+
         ToggleCircle.Parent = ToggleButton
-        
+
         local ToggleButtonUICorner = Instance.new("UICorner")
         ToggleButtonUICorner.CornerRadius = UDim.new(1, 0)
         ToggleButtonUICorner.Parent = ToggleButton
-        
+
         -- Make toggle clickable
         local ToggleClickArea = Instance.new("TextButton")
         ToggleClickArea.Name = "ToggleClickArea"
@@ -1182,622 +1028,721 @@ local function CreateGui()
         ToggleClickArea.BackgroundTransparency = 1
         ToggleClickArea.Text = ""
         ToggleClickArea.Parent = ToggleFrame
-        
+
         local toggled = initialValue
-        
+
+        -- Add hover effects
+        ToggleClickArea.MouseEnter:Connect(function()
+            TweenService:Create(ItemBackground, TweenInfo.new(0.2), {
+                BackgroundTransparency = 0.85
+            }):Play()
+        end)
+
+        ToggleClickArea.MouseLeave:Connect(function()
+            TweenService:Create(ItemBackground, TweenInfo.new(0.2), {
+                BackgroundTransparency = 1
+            }):Play()
+        end)
+
+        -- Add click animation
+        ToggleClickArea.MouseButton1Down:Connect(function()
+            TweenService:Create(ToggleFrame, TweenInfo.new(0.1), {
+                Size = UDim2.new(1, 0, 0, 33) -- Shrink slightly on click
+            }):Play()
+        end)
+
+        ToggleClickArea.MouseButton1Up:Connect(function()
+            TweenService:Create(ToggleFrame, TweenInfo.new(0.1), {
+                Size = UDim2.new(1, 0, 0, 35) -- Return to original size
+            }):Play()
+        end)
+
+        -- Toggle functionality with enhanced animations
         ToggleClickArea.MouseButton1Click:Connect(function()
             toggled = not toggled
-            
+
             if toggled then
-                ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-                TweenService:Create(ToggleCircle, TweenInfo.new(0.2), {Position = UDim2.new(0.6, 2, 0, 2)}):Play()
+                -- Toggle on animations
+                TweenService:Create(ToggleButton, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = Color3.fromRGB(60, 120, 255)
+                }):Play()
+                TweenService:Create(ButtonGlow, TweenInfo.new(0.3), {
+                    ImageTransparency = 0.7
+                }):Play()
+                TweenService:Create(ToggleCircle, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Position = UDim2.new(0.55, 2, 0, 2)
+                }):Play()
             else
-                ToggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-                TweenService:Create(ToggleCircle, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0, 2)}):Play()
+                -- Toggle off animations
+                TweenService:Create(ToggleButton, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = Color3.fromRGB(70, 70, 90)
+                }):Play()
+                TweenService:Create(ButtonGlow, TweenInfo.new(0.3), {
+                    ImageTransparency = 1
+                }):Play()
+                TweenService:Create(ToggleCircle, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Position = UDim2.new(0, 2, 0, 2)
+                }):Play()
             end
-            
+
             callback(toggled)
         end)
-        
+
         return ToggleFrame
     end
-    
-    -- Function to create slider
+
+    -- Function to create enhanced slider
     local function CreateSlider(parent, position, text, min, max, initialValue, callback)
+        -- Main container
         local SliderFrame = Instance.new("Frame")
         SliderFrame.Name = text .. "SliderFrame"
-        SliderFrame.Size = UDim2.new(1, 0, 0, 50)
+        SliderFrame.Size = UDim2.new(1, 0, 0, 60)
         SliderFrame.Position = UDim2.new(0, 0, 0, position)
         SliderFrame.BackgroundTransparency = 1
         SliderFrame.Parent = parent
-        
+
+        -- Item background with hover effect
+        local ItemBackground = Instance.new("Frame")
+        ItemBackground.Name = "ItemBackground"
+        ItemBackground.Size = UDim2.new(1, 0, 1, -5)
+        ItemBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        ItemBackground.BackgroundTransparency = 1 -- Start transparent, will show on hover
+        ItemBackground.BorderSizePixel = 0
+        ItemBackground.Parent = SliderFrame
+
+        -- Add rounded corners to background
+        local BgCorner = Instance.new("UICorner")
+        BgCorner.CornerRadius = UDim.new(0, 6)
+        BgCorner.Parent = ItemBackground
+
+        -- Enhanced slider label and value display
+        local SliderLabelsFrame = Instance.new("Frame")
+        SliderLabelsFrame.Name = "SliderLabelsFrame"
+        SliderLabelsFrame.Size = UDim2.new(1, 0, 0, 24)
+        SliderLabelsFrame.Position = UDim2.new(0, 10, 0, 0)
+        SliderLabelsFrame.BackgroundTransparency = 1
+        SliderLabelsFrame.Parent = SliderFrame
+
+        -- Slider title
         local SliderLabel = Instance.new("TextLabel")
         SliderLabel.Name = "SliderLabel"
-        SliderLabel.Size = UDim2.new(1, 0, 0, 20)
+        SliderLabel.Size = UDim2.new(0.6, 0, 1, 0)
         SliderLabel.BackgroundTransparency = 1
-        SliderLabel.Text = text .. ": " .. initialValue
-        SliderLabel.Font = Enum.Font.SourceSans
-        SliderLabel.TextSize = 16
+        SliderLabel.Text = text
+        SliderLabel.Font = Enum.Font.GothamSemibold
+        SliderLabel.TextSize = 14
         SliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
         SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-        SliderLabel.Parent = SliderFrame
-        
+        SliderLabel.Parent = SliderLabelsFrame
+
+        -- Value display
+        local ValueLabel = Instance.new("TextLabel")
+        ValueLabel.Name = "ValueLabel"
+        ValueLabel.Size = UDim2.new(0.4, -10, 1, 0)
+        ValueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+        ValueLabel.BackgroundTransparency = 1
+        ValueLabel.Text = initialValue
+        ValueLabel.Font = Enum.Font.GothamBold
+        ValueLabel.TextSize = 14
+        ValueLabel.TextColor3 = Color3.fromRGB(60, 120, 255) -- Highlight color
+        ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+        ValueLabel.Parent = SliderLabelsFrame
+
+        -- Min/Max labels
+        local MinLabel = Instance.new("TextLabel")
+        MinLabel.Name = "MinLabel"
+        MinLabel.Size = UDim2.new(0, 30, 0, 15)
+        MinLabel.Position = UDim2.new(0, 10, 0, 30)
+        MinLabel.BackgroundTransparency = 1
+        MinLabel.Text = min
+        MinLabel.Font = Enum.Font.Gotham
+        MinLabel.TextSize = 10
+        MinLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        MinLabel.TextXAlignment = Enum.TextXAlignment.Left
+        MinLabel.Parent = SliderFrame
+
+        local MaxLabel = Instance.new("TextLabel")
+        MaxLabel.Name = "MaxLabel"
+        MaxLabel.Size = UDim2.new(0, 30, 0, 15)
+        MaxLabel.Position = UDim2.new(1, -40, 0, 30)
+        MaxLabel.BackgroundTransparency = 1
+        MaxLabel.Text = max
+        MaxLabel.Font = Enum.Font.Gotham
+        MaxLabel.TextSize = 10
+        MaxLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        MaxLabel.TextXAlignment = Enum.TextXAlignment.Right
+        MaxLabel.Parent = SliderFrame
+
+        -- Enhanced slider track
         local SliderBack = Instance.new("Frame")
         SliderBack.Name = "SliderBack"
-        SliderBack.Size = UDim2.new(1, 0, 0, 8)
-        SliderBack.Position = UDim2.new(0, 0, 0.6, 0)
-        SliderBack.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        SliderBack.Size = UDim2.new(1, -60, 0, 6) -- Thinner, more modern
+        SliderBack.Position = UDim2.new(0, 30, 0, 37)
+        SliderBack.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
         SliderBack.BorderSizePixel = 0
         SliderBack.Parent = SliderFrame
-        
+
+        -- Add subtle inner shadow to track
+        local TrackShadow = Instance.new("Frame")
+        TrackShadow.Name = "TrackShadow"
+        TrackShadow.Size = UDim2.new(1, 4, 1, 4)
+        TrackShadow.Position = UDim2.new(0, -2, 0, -2)
+        TrackShadow.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+        TrackShadow.BorderSizePixel = 0
+        TrackShadow.ZIndex = 0
+        TrackShadow.Parent = SliderBack
+
+        local TrackShadowCorner = Instance.new("UICorner")
+        TrackShadowCorner.CornerRadius = UDim.new(1, 0)
+        TrackShadowCorner.Parent = TrackShadow
+
+        -- Enhanced fill bar
         local SliderFill = Instance.new("Frame")
         SliderFill.Name = "SliderFill"
         SliderFill.Size = UDim2.new((initialValue - min) / (max - min), 0, 1, 0)
-        SliderFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        SliderFill.BackgroundColor3 = Color3.fromRGB(60, 120, 255) -- Matching toggle color
         SliderFill.BorderSizePixel = 0
         SliderFill.Parent = SliderBack
-        
+
+        -- Add gradient to fill bar
+        local FillGradient = Instance.new("UIGradient")
+        FillGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 140, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 120, 255))
+        })
+        FillGradient.Rotation = 90
+        FillGradient.Parent = SliderFill
+
+        -- Enhanced slider handle
         local SliderCircle = Instance.new("Frame")
         SliderCircle.Name = "SliderCircle"
         SliderCircle.Size = UDim2.new(0, 16, 0, 16)
         SliderCircle.Position = UDim2.new(1, -8, 0.5, -8)
         SliderCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         SliderCircle.BorderSizePixel = 0
-        
+
+        -- Add glow to handle
+        local CircleGlow = Instance.new("ImageLabel")
+        CircleGlow.Name = "CircleGlow"
+        CircleGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+        CircleGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+        CircleGlow.Size = UDim2.new(1.5, 0, 1.5, 0)
+        CircleGlow.BackgroundTransparency = 1
+        CircleGlow.Image = "rbxassetid://1316045217"
+        CircleGlow.ImageColor3 = Color3.fromRGB(60, 120, 255)
+        CircleGlow.ImageTransparency = 0.7
+        CircleGlow.ScaleType = Enum.ScaleType.Slice
+        CircleGlow.SliceCenter = Rect.new(10, 10, 118, 118)
+        CircleGlow.ZIndex = 0
+        CircleGlow.Parent = SliderCircle
+
         local UICorner = Instance.new("UICorner")
         UICorner.CornerRadius = UDim.new(1, 0)
         UICorner.Parent = SliderCircle
-        
+
         SliderCircle.Parent = SliderFill
-        
+
         local SliderBackUICorner = Instance.new("UICorner")
         SliderBackUICorner.CornerRadius = UDim.new(1, 0)
         SliderBackUICorner.Parent = SliderBack
-        
+
         local SliderFillUICorner = Instance.new("UICorner")
         SliderFillUICorner.CornerRadius = UDim.new(1, 0)
         SliderFillUICorner.Parent = SliderFill
-        
-        -- Make slider draggable
+
+        -- Improved slider interaction
         local SliderButton = Instance.new("TextButton")
         SliderButton.Name = "SliderButton"
         SliderButton.Size = UDim2.new(1, 0, 1, 0)
         SliderButton.BackgroundTransparency = 1
         SliderButton.Text = ""
         SliderButton.Parent = SliderBack
-        
+
         local dragging = false
         local value = initialValue
-        
-        SliderButton.MouseButton1Down:Connect(function()
-            dragging = true
+
+        -- Add hover effects
+        SliderButton.MouseEnter:Connect(function()
+            TweenService:Create(ItemBackground, TweenInfo.new(0.2), {
+                BackgroundTransparency = 0.85
+            }):Play()
+
+            TweenService:Create(CircleGlow, TweenInfo.new(0.3), {
+                ImageTransparency = 0.5,
+                Size = UDim2.new(1.8, 0, 1.8, 0)
+            }):Play()
         end)
-        
-        game:GetService("UserInputService").InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = false
+
+        SliderButton.MouseLeave:Connect(function()
+            TweenService:Create(ItemBackground, TweenInfo.new(0.2), {
+                BackgroundTransparency = 1
+            }):Play()
+
+            if not dragging then
+                TweenService:Create(CircleGlow, TweenInfo.new(0.3), {
+                    ImageTransparency = 0.7,
+                    Size = UDim2.new(1.5, 0, 1.5, 0)
+                }):Play()
             end
         end)
-        
+
+        -- Enhanced dragging functionality with visual feedback
+        SliderButton.MouseButton1Down:Connect(function()
+            dragging = true
+
+            -- Scale up handle slightly for feedback
+            TweenService:Create(SliderCircle, TweenInfo.new(0.2), {
+                Size = UDim2.new(0, 18, 0, 18),
+                Position = UDim2.new(1, -9, 0.5, -9)
+            }):Play()
+
+            -- Brighten glow
+            TweenService:Create(CircleGlow, TweenInfo.new(0.2), {
+                ImageTransparency = 0.3,
+                Size = UDim2.new(2, 0, 2, 0)
+            }):Play()
+        end)
+
+        game:GetService("UserInputService").InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 and dragging then
+                dragging = false
+
+                -- Return handle to normal size
+                TweenService:Create(SliderCircle, TweenInfo.new(0.2), {
+                    Size = UDim2.new(0, 16, 0, 16),
+                    Position = UDim2.new(1, -8, 0.5, -8)
+                }):Play()
+
+                -- Return glow to normal
+                TweenService:Create(CircleGlow, TweenInfo.new(0.3), {
+                    ImageTransparency = 0.7,
+                    Size = UDim2.new(1.5, 0, 1.5, 0)
+                }):Play()
+            end
+        end)
+
         SliderButton.MouseMoved:Connect(function(x)
             if dragging then
                 local xScale = math.clamp((x - SliderBack.AbsolutePosition.X) / SliderBack.AbsoluteSize.X, 0, 1)
-                SliderFill.Size = UDim2.new(xScale, 0, 1, 0)
-                
+
+                -- Smooth animation for slider movement
+                TweenService:Create(SliderFill, TweenInfo.new(0.1), {
+                    Size = UDim2.new(xScale, 0, 1, 0)
+                }):Play()
+
                 value = min + ((max - min) * xScale)
-                value = math.floor(value * 10 + 0.5) / 10  -- Round to 1 decimal place
-                SliderLabel.Text = text .. ": " .. value
-                
-                callback(value)
+
+                -- Format the value display based on type
+                local displayValue
+                if max - min >= 100 then
+                    displayValue = math.floor(value) -- Whole number for large ranges
+                else
+                    displayValue = math.floor(value * 10 + 0.5) / 10 -- 1 decimal place for smaller ranges
+                end
+
+                ValueLabel.Text = displayValue
+
+                -- Add little pulse animation on value change
+                TweenService:Create(ValueLabel, TweenInfo.new(0.1), {
+                    TextSize = 16
+                }):Play()
+                TweenService:Create(ValueLabel, TweenInfo.new(0.2), {
+                    TextSize = 14
+                }):Play()
+
+                callback(displayValue)
             end
         end)
-        
+
         return SliderFrame
     end
-    
-    -- Function to create dropdown
+
+    -- Function to create enhanced dropdown
     local function CreateDropdown(parent, position, text, options, initialValue, callback)
+        -- Main container with improved styling
         local DropdownFrame = Instance.new("Frame")
         DropdownFrame.Name = text .. "DropdownFrame"
-        DropdownFrame.Size = UDim2.new(1, 0, 0, 30)
+        DropdownFrame.Size = UDim2.new(1, 0, 0, 35) -- Taller for better visibility
         DropdownFrame.Position = UDim2.new(0, 0, 0, position)
         DropdownFrame.BackgroundTransparency = 1
         DropdownFrame.Parent = parent
-        
+
+        -- Item background with hover effect
+        local ItemBackground = Instance.new("Frame")
+        ItemBackground.Name = "ItemBackground"
+        ItemBackground.Size = UDim2.new(1, 0, 1, -5)
+        ItemBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        ItemBackground.BackgroundTransparency = 1 -- Start transparent, will show on hover
+        ItemBackground.BorderSizePixel = 0
+        ItemBackground.Parent = DropdownFrame
+
+        -- Add rounded corners to background
+        local BgCorner = Instance.new("UICorner")
+        BgCorner.CornerRadius = UDim.new(0, 6)
+        BgCorner.Parent = ItemBackground
+
+        -- Enhanced dropdown label
         local DropdownLabel = Instance.new("TextLabel")
         DropdownLabel.Name = "DropdownLabel"
         DropdownLabel.Size = UDim2.new(0.4, 0, 1, 0)
+        DropdownLabel.Position = UDim2.new(0, 10, 0, 0) -- Add some padding
         DropdownLabel.BackgroundTransparency = 1
         DropdownLabel.Text = text
-        DropdownLabel.Font = Enum.Font.SourceSans
-        DropdownLabel.TextSize = 16
+        DropdownLabel.Font = Enum.Font.GothamSemibold -- Better font
+        DropdownLabel.TextSize = 14
         DropdownLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
         DropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
         DropdownLabel.Parent = DropdownFrame
-        
+
+        -- Stylish dropdown button
         local DropdownButton = Instance.new("TextButton")
         DropdownButton.Name = "DropdownButton"
-        DropdownButton.Size = UDim2.new(0.55, 0, 1, 0)
-        DropdownButton.Position = UDim2.new(0.45, 0, 0, 0)
-        DropdownButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        DropdownButton.Size = UDim2.new(0.55, 0, 0, 26)
+        DropdownButton.Position = UDim2.new(0.45, 0, 0.5, -13)
+        DropdownButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
         DropdownButton.BorderSizePixel = 0
         DropdownButton.Text = initialValue
-        DropdownButton.Font = Enum.Font.SourceSans
-        DropdownButton.TextSize = 16
+        DropdownButton.Font = Enum.Font.Gotham
+        DropdownButton.TextSize = 14
         DropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
         DropdownButton.Parent = DropdownFrame
-        
+
+        -- Add rounded corners to dropdown button
+        local ButtonCorner = Instance.new("UICorner")
+        ButtonCorner.CornerRadius = UDim.new(0, 6)
+        ButtonCorner.Parent = DropdownButton
+
+        -- Add gradient to dropdown button
+        local ButtonGradient = Instance.new("UIGradient")
+        ButtonGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 80)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 70))
+        })
+        ButtonGradient.Rotation = 90
+        ButtonGradient.Parent = DropdownButton
+
+        -- Add arrow icon to dropdown
+        local ArrowIcon = Instance.new("ImageLabel")
+        ArrowIcon.Name = "ArrowIcon"
+        ArrowIcon.Size = UDim2.new(0, 16, 0, 16)
+        ArrowIcon.Position = UDim2.new(1, -24, 0.5, -8)
+        ArrowIcon.BackgroundTransparency = 1
+        ArrowIcon.Image = "rbxassetid://6031091004" -- Arrow down icon
+        ArrowIcon.ImageColor3 = Color3.fromRGB(180, 180, 200)
+        ArrowIcon.Parent = DropdownButton
+
+        -- Create a stylish container for dropdown options
         local DropdownContainer = Instance.new("Frame")
         DropdownContainer.Name = "DropdownContainer"
-        DropdownContainer.Size = UDim2.new(0.55, 0, 0, #options * 25)
-        DropdownContainer.Position = UDim2.new(0.45, 0, 1, 0)
-        DropdownContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        DropdownContainer.Size = UDim2.new(0.55, 0, 0, 0) -- Start with 0 height
+        DropdownContainer.Position = UDim2.new(0.45, 0, 1, 5)
+        DropdownContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
         DropdownContainer.BorderSizePixel = 0
         DropdownContainer.Visible = false
         DropdownContainer.ZIndex = 10
+        DropdownContainer.ClipsDescendants = true-- Ensures smooth animation
         DropdownContainer.Parent = DropdownFrame
-        
+
+        -- Add shadow to dropdown container
+        local ContainerShadow = Instance.new("ImageLabel")
+        ContainerShadow.Name = "ContainerShadow"
+        ContainerShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+        ContainerShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+        ContainerShadow.Size = UDim2.new(1, 20, 1, 20)
+        ContainerShadow.BackgroundTransparency = 1
+        ContainerShadow.Image = "rbxassetid://1316045217"
+        ContainerShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+        ContainerShadow.ImageTransparency = 0.7
+        ContainerShadow.ScaleType = Enum.ScaleType.Slice
+        ContainerShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+        ContainerShadow.ZIndex = 9
+        ContainerShadow.Parent = DropdownContainer
+
+        -- Add rounded corners to dropdown container
+        local ContainerCorner = Instance.new("UICorner")
+        ContainerCorner.CornerRadius = UDim.new(0, 6)
+        ContainerCorner.Parent = DropdownContainer
+
+        -- Create a scrolling frame to hold many options
+        local OptionsHolder = Instance.new("ScrollingFrame")
+        OptionsHolder.Name = "OptionsHolder"
+        OptionsHolder.Size = UDim2.new(1, 0, 1, 0)
+        OptionsHolder.BackgroundTransparency = 1
+        OptionsHolder.BorderSizePixel = 0
+        OptionsHolder.ScrollBarThickness = 4
+        OptionsHolder.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 150)
+        OptionsHolder.ZIndex = 10
+        OptionsHolder.Parent = DropdownContainer
+
+        -- Auto-size canvas based on number of options
+        local canvasHeight = math.min(200, #options * 30) -- Cap at 200 pixels
+        OptionsHolder.CanvasSize = UDim2.new(0, 0, 0, #options * 30)
+
+        -- Set the container's height based on the number of options (with a max height)
+        local containerHeight = math.min(200, #options * 30)
+
+        -- Create the option buttons with modern styling
         for i, option in ipairs(options) do
             local OptionButton = Instance.new("TextButton")
             OptionButton.Name = option .. "Button"
-            OptionButton.Size = UDim2.new(1, 0, 0, 25)
-            OptionButton.Position = UDim2.new(0, 0, 0, (i - 1) * 25)
-            OptionButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            OptionButton.Size = UDim2.new(1, -10, 0, 30)
+            OptionButton.Position = UDim2.new(0, 5, 0, (i - 1) * 30)
+            OptionButton.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+            OptionButton.BackgroundTransparency = 1
             OptionButton.BorderSizePixel = 0
             OptionButton.Text = option
-            OptionButton.Font = Enum.Font.SourceSans
-            OptionButton.TextSize = 16
+            OptionButton.Font = Enum.Font.Gotham
+            OptionButton.TextSize = 14
             OptionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-            OptionButton.ZIndex = 10
-            OptionButton.Parent = DropdownContainer
-            
+            OptionButton.ZIndex = 11
+            OptionButton.Parent = OptionsHolder
+
+            -- Add hover effect for options
+            OptionButton.MouseEnter:Connect(function()
+                TweenService:Create(OptionButton, TweenInfo.new(0.2), {
+                    BackgroundTransparency = 0.7
+                }):Play()
+            end)
+
+            OptionButton.MouseLeave:Connect(function()
+                TweenService:Create(OptionButton, TweenInfo.new(0.2), {
+                    BackgroundTransparency = 1
+                }):Play()
+            end)
+
+            -- Handle option selection with animations
             OptionButton.MouseButton1Click:Connect(function()
+                -- Set the selected value
                 DropdownButton.Text = option
+
+                -- Animate the container closing
+                TweenService:Create(DropdownContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0.55, 0, 0, 0)
+                }):Play()
+
+                -- Animate the arrow rotation back
+                TweenService:Create(ArrowIcon, TweenInfo.new(0.3), {
+                    Rotation = 0
+                }):Play()
+
+                -- Hide container after animation
+                wait(0.3)
                 DropdownContainer.Visible = false
+
                 callback(option)
             end)
         end
-        
+
+        -- Add click handler with animations
         DropdownButton.MouseButton1Click:Connect(function()
-            DropdownContainer.Visible = not DropdownContainer.Visible
+            if DropdownContainer.Visible then
+                -- Close the dropdown with animation
+                TweenService:Create(DropdownContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0.55, 0, 0, 0)
+                }):Play()
+
+                -- Rotate arrow back to normal
+                TweenService:Create(ArrowIcon, TweenInfo.new(0.3), {
+                    Rotation = 0
+                }):Play()
+
+                -- Hide after animation completes
+                wait(0.3)
+                DropdownContainer.Visible = false
+            else
+                -- Show dropdown
+                DropdownContainer.Size = UDim2.new(0.55, 0, 0, 0)
+                DropdownContainer.Visible = true
+
+                -- Open with animation
+                TweenService:Create(DropdownContainer, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0.55, 0, 0, containerHeight)
+                }):Play()
+
+                -- Rotate arrow to indicate open state
+                TweenService:Create(ArrowIcon, TweenInfo.new(0.3), {
+                    Rotation = 180
+                }):Play()
+            end
         end)
-        
+
+        -- Add hover effect for dropdown button
+        DropdownButton.MouseEnter:Connect(function()
+            TweenService:Create(DropdownButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+            }):Play()
+
+            TweenService:Create(ItemBackground, TweenInfo.new(0.2), {
+                BackgroundTransparency = 0.85
+            }):Play()
+        end)
+
+        DropdownButton.MouseLeave:Connect(function()
+            TweenService:Create(DropdownButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+            }):Play()
+
+            TweenService:Create(ItemBackground, TweenInfo.new(0.2), {
+                BackgroundTransparency = 1
+            }):Play()
+        end)
+
         return DropdownFrame
     end
-    
+
     -- ESP Settings
     CreateToggle(EspSettingsFrame, 0, "ESP Enabled", Settings.EspEnabled, function(value)
         Settings.EspEnabled = value
     end)
-    
+
     CreateToggle(EspSettingsFrame, 40, "Box ESP", Settings.BoxEsp, function(value)
         Settings.BoxEsp = value
     end)
-    
+
     CreateToggle(EspSettingsFrame, 80, "Name ESP", Settings.NameEsp, function(value)
         Settings.NameEsp = value
     end)
-    
+
     CreateToggle(EspSettingsFrame, 120, "Distance ESP", Settings.DistanceEsp, function(value)
         Settings.DistanceEsp = value
     end)
-    
+
     CreateToggle(EspSettingsFrame, 160, "Skeleton ESP", Settings.SkeletonEsp, function(value)
         Settings.SkeletonEsp = value
     end)
-    
+
     CreateToggle(EspSettingsFrame, 200, "Head Dot ESP", Settings.HeadDotEsp, function(value)
         Settings.HeadDotEsp = value
     end)
-    
+
     CreateToggle(EspSettingsFrame, 240, "Tracer ESP", Settings.TracerEsp, function(value)
         Settings.TracerEsp = value
     end)
-    
+
     CreateToggle(EspSettingsFrame, 280, "Team Check", Settings.TeamCheck, function(value)
         Settings.TeamCheck = value
     end)
-    
+
     CreateToggle(EspSettingsFrame, 320, "Team Color", Settings.TeamColor, function(value)
         Settings.TeamColor = value
     end)
-    
+
     CreateToggle(EspSettingsFrame, 360, "Show Team", Settings.ShowTeam, function(value)
         Settings.ShowTeam = value
     end)
-    
-    -- ESP Transparency Slider for advanced customization
-    CreateSlider(EspSettingsFrame, 400, "ESP Transparency", 0, 1, Settings.EspTransparency, function(value)
-        Settings.EspTransparency = value
-        -- Update transparency for all ESP objects
-        for _, objects in pairs(EspObjects) do
-            for objName, obj in pairs(objects) do
-                if objName ~= "Tracer" then  -- Skip tracer as it needs to be always visible
-                    obj.Transparency = value
-                end
-            end
-        end
-    end)
-    
-    -- Create enhanced color pickers for ESP with better visuals
-    local EspColorPickerFrame = Instance.new("Frame")
-    EspColorPickerFrame.Name = "EspColorPickerFrame"
-    EspColorPickerFrame.Size = UDim2.new(1, 0, 0, 80)  -- Taller for better display
-    EspColorPickerFrame.Position = UDim2.new(0, 0, 0, 460)
-    EspColorPickerFrame.BackgroundTransparency = 0.9
-    EspColorPickerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    EspColorPickerFrame.BorderSizePixel = 1
-    EspColorPickerFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
-    EspColorPickerFrame.Parent = EspSettingsFrame
-    
-    -- Add rounded corners for better appearance
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 6)
-    UICorner.Parent = EspColorPickerFrame
-    
-    local EspColorLabel = Instance.new("TextLabel")
-    EspColorLabel.Name = "EspColorLabel"
-    EspColorLabel.Size = UDim2.new(1, 0, 0, 25)
-    EspColorLabel.Position = UDim2.new(0, 10, 0, 5)
-    EspColorLabel.BackgroundTransparency = 1
-    EspColorLabel.Text = "ESP Color Customization"
-    EspColorLabel.Font = Enum.Font.SourceSansBold
-    EspColorLabel.TextSize = 16
-    EspColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    EspColorLabel.TextXAlignment = Enum.TextXAlignment.Left
-    EspColorLabel.Parent = EspColorPickerFrame
-    
-    -- Enemy ESP Color
-    local EnemyColorLabel = Instance.new("TextLabel")
-    EnemyColorLabel.Name = "EnemyColorLabel"
-    EnemyColorLabel.Size = UDim2.new(0.6, 0, 0, 20)
-    EnemyColorLabel.Position = UDim2.new(0, 15, 0, 35)
-    EnemyColorLabel.BackgroundTransparency = 1
-    EnemyColorLabel.Text = "Enemy ESP Color"
-    EnemyColorLabel.Font = Enum.Font.SourceSans
-    EnemyColorLabel.TextSize = 14
-    EnemyColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    EnemyColorLabel.TextXAlignment = Enum.TextXAlignment.Left
-    EnemyColorLabel.Parent = EspColorPickerFrame
-    
-    local EspColorPreview = Instance.new("Frame")
-    EspColorPreview.Name = "EspColorPreview"
-    EspColorPreview.Size = UDim2.new(0, 40, 0, 20)
-    EspColorPreview.Position = UDim2.new(1, -60, 0, 35)
-    EspColorPreview.BackgroundColor3 = Settings.CustomEspColor
-    EspColorPreview.BorderSizePixel = 1
-    EspColorPreview.BorderColor3 = Color3.fromRGB(100, 100, 100)
-    EspColorPreview.Parent = EspColorPickerFrame
-    
-    -- Add rounded corners to color preview
-    local ColorCorner = Instance.new("UICorner")
-    ColorCorner.CornerRadius = UDim.new(0, 4)
-    ColorCorner.Parent = EspColorPreview
-    
-    local TeamColorPickerFrame = Instance.new("Frame")
-    TeamColorPickerFrame.Name = "TeamColorPickerFrame"
-    TeamColorPickerFrame.Size = UDim2.new(1, 0, 0, 30)
-    TeamColorPickerFrame.Position = UDim2.new(0, 0, 0, 440)
-    TeamColorPickerFrame.BackgroundTransparency = 1
-    TeamColorPickerFrame.Parent = EspSettingsFrame
-    
-    local TeamColorLabel = Instance.new("TextLabel")
-    TeamColorLabel.Name = "TeamColorLabel"
-    TeamColorLabel.Size = UDim2.new(0.7, 0, 1, 0)
-    TeamColorLabel.BackgroundTransparency = 1
-    TeamColorLabel.Text = "Team ESP Color"
-    TeamColorLabel.Font = Enum.Font.SourceSans
-    TeamColorLabel.TextSize = 16
-    TeamColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TeamColorLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TeamColorLabel.Parent = TeamColorPickerFrame
-    
-    local TeamColorPreview = Instance.new("Frame")
-    TeamColorPreview.Name = "TeamColorPreview"
-    TeamColorPreview.Size = UDim2.new(0, 30, 0, 20)
-    TeamColorPreview.Position = UDim2.new(1, -40, 0.5, -10)
-    TeamColorPreview.BackgroundColor3 = Settings.CustomTeamEspColor
-    TeamColorPreview.BorderSizePixel = 1
-    TeamColorPreview.BorderColor3 = Color3.fromRGB(100, 100, 100)
-    TeamColorPreview.Parent = TeamColorPickerFrame
-    
-    CreateSlider(EspSettingsFrame, 480, "ESP Transparency", 0.1, 1, Settings.EspTransparency, function(value)
-        Settings.EspTransparency = value
-    end)
-    
-    CreateSlider(EspSettingsFrame, 540, "Max ESP Distance", 100, 5000, Settings.MaxEspDistance, function(value)
+
+    CreateSlider(EspSettingsFrame, 400, "Max ESP Distance", 100, 5000, Settings.MaxEspDistance, function(value)
         Settings.MaxEspDistance = value
     end)
-    
+
     -- Aimbot Settings
     CreateToggle(AimbotSettingsFrame, 0, "Aimbot Enabled", Settings.AimbotEnabled, function(value)
         Settings.AimbotEnabled = value
     end)
-    
+
     CreateDropdown(AimbotSettingsFrame, 40, "Aim Part", {"Head", "UpperTorso", "HumanoidRootPart"}, Settings.AimPart, function(value)
         Settings.AimPart = value
     end)
-    
+
     CreateDropdown(AimbotSettingsFrame, 80, "Aim Type", {"Camera", "Mouse"}, Settings.AimType, function(value)
         Settings.AimType = value
     end)
-    
+
     CreateToggle(AimbotSettingsFrame, 120, "Team Check", Settings.TeamCheckAimbot, function(value)
         Settings.TeamCheckAimbot = value
     end)
-    
+
     CreateToggle(AimbotSettingsFrame, 160, "Wall Check", Settings.WallCheck, function(value)
         Settings.WallCheck = value
     end)
-    
+
     CreateToggle(AimbotSettingsFrame, 200, "Aim Smoothing", Settings.AimSmoothing, function(value)
         Settings.AimSmoothing = value
     end)
-    
+
     CreateSlider(AimbotSettingsFrame, 240, "Smoothness", 0.1, 1, Settings.Smoothness, function(value)
         Settings.Smoothness = value
     end)
-    
+
     CreateSlider(AimbotSettingsFrame, 300, "Aim FOV", 10, 500, Settings.AimFov, function(value)
         Settings.AimFov = value
         UpdateFovCircle()
     end)
-    
+
     CreateToggle(AimbotSettingsFrame, 360, "Show FOV", Settings.ShowFov, function(value)
         Settings.ShowFov = value
         UpdateFovCircle()
     end)
-    
+
     CreateToggle(AimbotSettingsFrame, 400, "Visibility Check", Settings.VisibilityCheck, function(value)
         Settings.VisibilityCheck = value
     end)
-    
+
     CreateSlider(AimbotSettingsFrame, 440, "Max Distance", 100, 2000, Settings.MaxDistance, function(value)
         Settings.MaxDistance = value
     end)
-    
-    -- Add Prediction Controls
-    CreateToggle(AimbotSettingsFrame, 500, "Prediction", Settings.PredictionEnabled, function(value)
-        Settings.PredictionEnabled = value
-    end)
-    
-    CreateSlider(AimbotSettingsFrame, 540, "Prediction Amount", 0.05, 0.5, Settings.PredictionAmount, function(value)
-        Settings.PredictionAmount = value
-    end)
-    
-    -- Create FOV Circle Color Picker
-    local FovColorPickerFrame = Instance.new("Frame")
-    FovColorPickerFrame.Name = "FovColorPickerFrame"
-    FovColorPickerFrame.Size = UDim2.new(1, 0, 0, 30)
-    FovColorPickerFrame.Position = UDim2.new(0, 0, 0, 600)
-    FovColorPickerFrame.BackgroundTransparency = 1
-    FovColorPickerFrame.Parent = AimbotSettingsFrame
-    
-    local FovColorLabel = Instance.new("TextLabel")
-    FovColorLabel.Name = "FovColorLabel"
-    FovColorLabel.Size = UDim2.new(0.7, 0, 1, 0)
-    FovColorLabel.BackgroundTransparency = 1
-    FovColorLabel.Text = "FOV Circle Color"
-    FovColorLabel.Font = Enum.Font.SourceSans
-    FovColorLabel.TextSize = 16
-    FovColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FovColorLabel.TextXAlignment = Enum.TextXAlignment.Left
-    FovColorLabel.Parent = FovColorPickerFrame
-    
-    local FovColorPreview = Instance.new("Frame")
-    FovColorPreview.Name = "FovColorPreview"
-    FovColorPreview.Size = UDim2.new(0, 30, 0, 20)
-    FovColorPreview.Position = UDim2.new(1, -40, 0.5, -10)
-    FovColorPreview.BackgroundColor3 = Settings.CustomFovColor
-    FovColorPreview.BorderSizePixel = 1
-    FovColorPreview.BorderColor3 = Color3.fromRGB(100, 100, 100)
-    FovColorPreview.Parent = FovColorPickerFrame
-    
-    -- Create Player Ignore Section
-    local IgnorePlayersLabel = Instance.new("TextLabel")
-    IgnorePlayersLabel.Name = "IgnorePlayersLabel"
-    IgnorePlayersLabel.Size = UDim2.new(1, 0, 0, 20)
-    IgnorePlayersLabel.Position = UDim2.new(0, 0, 0, 650)
-    IgnorePlayersLabel.BackgroundTransparency = 1
-    IgnorePlayersLabel.Text = "Ignored Players:"
-    IgnorePlayersLabel.Font = Enum.Font.SourceSansBold
-    IgnorePlayersLabel.TextSize = 16
-    IgnorePlayersLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    IgnorePlayersLabel.TextXAlignment = Enum.TextXAlignment.Left
-    IgnorePlayersLabel.Parent = AimbotSettingsFrame
-    
-    local IgnorePlayersFrame = Instance.new("Frame")
-    IgnorePlayersFrame.Name = "IgnorePlayersFrame"
-    IgnorePlayersFrame.Size = UDim2.new(1, 0, 0, 120)
-    IgnorePlayersFrame.Position = UDim2.new(0, 0, 0, 680)
-    IgnorePlayersFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    IgnorePlayersFrame.BorderSizePixel = 1
-    IgnorePlayersFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
-    IgnorePlayersFrame.Parent = AimbotSettingsFrame
-    
-    local IgnorePlayersScrollFrame = Instance.new("ScrollingFrame")
-    IgnorePlayersScrollFrame.Name = "IgnorePlayersScrollFrame"
-    IgnorePlayersScrollFrame.Size = UDim2.new(1, -10, 1, -10)
-    IgnorePlayersScrollFrame.Position = UDim2.new(0, 5, 0, 5)
-    IgnorePlayersScrollFrame.BackgroundTransparency = 1
-    IgnorePlayersScrollFrame.BorderSizePixel = 0
-    IgnorePlayersScrollFrame.ScrollBarThickness = 5
-    IgnorePlayersScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    IgnorePlayersScrollFrame.Parent = IgnorePlayersFrame
-    
-    local IgnorePlayersList = Instance.new("UIListLayout")
-    IgnorePlayersList.Name = "IgnorePlayersList"
-    IgnorePlayersList.Padding = UDim.new(0, 5)
-    IgnorePlayersList.SortOrder = Enum.SortOrder.LayoutOrder
-    IgnorePlayersList.Parent = IgnorePlayersScrollFrame
-    
-    local function UpdateIgnoredPlayersList()
-        -- Clear existing entries
-        for _, child in pairs(IgnorePlayersScrollFrame:GetChildren()) do
-            if child:IsA("Frame") then
-                child:Destroy()
-            end
-        end
-        
-        -- Add ignored players
-        local yOffset = 0
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                local playerEntry = Instance.new("Frame")
-                playerEntry.Name = player.Name .. "Entry"
-                playerEntry.Size = UDim2.new(1, -10, 0, 25)
-                playerEntry.Position = UDim2.new(0, 5, 0, yOffset)
-                playerEntry.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-                playerEntry.BorderSizePixel = 0
-                playerEntry.Parent = IgnorePlayersScrollFrame
-                
-                local playerLabel = Instance.new("TextLabel")
-                playerLabel.Name = "PlayerLabel"
-                playerLabel.Size = UDim2.new(0.7, 0, 1, 0)
-                playerLabel.BackgroundTransparency = 1
-                playerLabel.Text = player.Name
-                playerLabel.Font = Enum.Font.SourceSans
-                playerLabel.TextSize = 14
-                playerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                playerLabel.TextXAlignment = Enum.TextXAlignment.Left
-                playerLabel.TextTruncate = Enum.TextTruncate.AtEnd
-                playerLabel.Parent = playerEntry
-                
-                local isIgnored = table.find(Settings.IgnoredPlayers, player.Name) ~= nil
-                
-                local ignoreToggle = Instance.new("Frame")
-                ignoreToggle.Name = "IgnoreToggle"
-                ignoreToggle.Size = UDim2.new(0, 30, 0, 15)
-                ignoreToggle.Position = UDim2.new(1, -40, 0.5, -7.5)
-                ignoreToggle.BackgroundColor3 = isIgnored and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 100, 100)
-                ignoreToggle.BorderSizePixel = 0
-                ignoreToggle.Parent = playerEntry
-                
-                local toggleCorner = Instance.new("UICorner")
-                toggleCorner.CornerRadius = UDim.new(0, 7)
-                toggleCorner.Parent = ignoreToggle
-                
-                local ignoreButton = Instance.new("TextButton")
-                ignoreButton.Name = "IgnoreButton"
-                ignoreButton.Size = UDim2.new(1, 0, 1, 0)
-                ignoreButton.BackgroundTransparency = 1
-                ignoreButton.Text = ""
-                ignoreButton.Parent = playerEntry
-                
-                ignoreButton.MouseButton1Click:Connect(function()
-                    local index = table.find(Settings.IgnoredPlayers, player.Name)
-                    if index then
-                        table.remove(Settings.IgnoredPlayers, index)
-                        ignoreToggle.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-                    else
-                        table.insert(Settings.IgnoredPlayers, player.Name)
-                        ignoreToggle.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-                    end
-                end)
-                
-                yOffset = yOffset + 30
-            end
-        end
-        
-        IgnorePlayersScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
-    end
-    
-    -- Update Ignored Players list initially
-    UpdateIgnoredPlayersList()
-    
-    -- Update Ignored Players list when players join/leave
-    Players.PlayerAdded:Connect(UpdateIgnoredPlayersList)
-    Players.PlayerRemoving:Connect(UpdateIgnoredPlayersList)
-    
-    -- Adjust canvas size for Aimbot Settings Frame to fit all controls
-    AimbotSettingsFrame.CanvasSize = UDim2.new(0, 0, 0, 810)
-    
-    -- Adjust ESP Settings Frame canvas size
-    EspSettingsFrame.CanvasSize = UDim2.new(0, 0, 0, 600)
-    
-    return ScreenGui
-end
 
--- Implementation of table.find for Lua 5.1 which doesn't have it natively
-if not table.find then
-    table.find = function(tbl, value)
-        for i, v in ipairs(tbl) do
-            if v == value then
-                return i
-            end
-        end
-        return nil
-    end
+    CreateSlider(AimbotSettingsFrame, 480, "Bullet Speed", 100, 5000, Settings.BulletSpeed, function(value)
+        Settings.BulletSpeed = value
+    end)
+
+    CreateSlider(AimbotSettingsFrame, 540, "Gravity", 100, 500, Settings.GravityStrength, function(value)
+        Settings.GravityStrength = value
+    end)
+
+    CreateSlider(AimbotSettingsFrame, 600, "Drop Compensation", 0.1, 2, Settings.DropCompensation, function(value)
+        Settings.DropCompensation = value
+    end)
+
+
+    return ScreenGui
 end
 
 -- Script Initialization
 local function Initialize()
     -- Create FOV Circle
     UpdateFovCircle()
-    
-    -- Show a notification that the script is loading
-    pcall(function()
-        local StarterGui = game:GetService("StarterGui")
-        StarterGui:SetCore("SendNotification", {
-            Title = "Script Loading",
-            Text = "Aimbot & ESP loading...",
-            Duration = 3
-        })
-    end)
-    
-    -- Create GUI with guaranteed visibility
+
+    -- Create GUI
     local gui = CreateGui()
-    gui.Enabled = true -- Force GUI to be visible
-    GuiVisible = true
-    
-    -- Send a message to chat about the toggle key
-    pcall(function()
-        local StarterGui = game:GetService("StarterGui")
-        StarterGui:SetCore("ChatMakeSystemMessage", {
-            Text = "[Script] GUI loaded! Press " .. Settings.ToggleGuiKey .. " to toggle GUI visibility",
-            Color = Color3.fromRGB(0, 255, 0),
-            Font = Enum.Font.SourceSansBold,
-            TextSize = 18
-        })
-    end)
-    
+
     -- Create Player ESP Objects
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             CreateEspObject(player)
         end
     end
-    
+
     -- Player Added Event
     Players.PlayerAdded:Connect(function(player)
         if player ~= LocalPlayer then
             CreateEspObject(player)
         end
     end)
-    
+
     -- Player Removing Event
     Players.PlayerRemoving:Connect(function(player)
         RemoveEspObject(player)
     end)
-    
+
     -- ESP Update Loop
     RunService.RenderStepped:Connect(function()
         UpdateEsp()
-        
+
         if Settings.AimbotEnabled then
             AimbotTarget = GetClosestPlayerToMouse()
-            
+
             if AimbotTarget and UserInputService:IsMouseButtonPressed(Enum.UserInputType[Settings.AimKey]) then
                 AimAt(AimbotTarget)
             end
         end
-        
+
         -- Update FOV Circle
         if FovCircle then
             FovCircle.Visible = Settings.ShowFov and Settings.AimbotEnabled
         end
     end)
-    
+
     -- Toggle GUI Visibility
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not gameProcessed and input.KeyCode == Enum.KeyCode[Settings.ToggleGuiKey] then
@@ -1805,27 +1750,26 @@ local function Initialize()
             gui.Enabled = GuiVisible
         end
     end)
-    
+
     -- Script cleanup on termination
-    if game:GetService("CoreGui") and game:GetService("CoreGui").ChildRemoved then
-        game:GetService("CoreGui").ChildRemoved:Connect(function(child)
-            if child.Name == "AimbotESPGui" then
-                if FovCircle then
-                    FovCircle:Remove()
-                    FovCircle = nil
-                end
-                
-                for player, objects in pairs(EspObjects) do
-                    RemoveEspObject(player)
-                end
-                
-                EspObjects = {}
-                SkeletonObjects = {}
+    game:GetService("CoreGui").ChildRemoved:Connect(function(child)
+        if child.Name == "AimbotESPGui" then
+            if FovCircle then
+                FovCircle:Remove()
+                FovCircle = nil
             end
-        end)
-    end
+
+            for player, objects in pairs(EspObjects) do
+                RemoveEspObject(player)
+            end
+
+            EspObjects = {}
+            SkeletonObjects = {}
+        end
+    end)
 end
 
 Initialize()
 
 print("Aimbot & ESP Script Loaded!")
+end
