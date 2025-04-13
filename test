@@ -381,7 +381,7 @@ local EspObjects = {}
 local SkeletonObjects = {}
 local AimbotTarget = nil
 local FovCircle = nil
-local GuiVisible = true
+local GuiVisible = true -- Always start with GUI visible
 
 -- Helper Functions
 local function IsAlive(player)
@@ -872,11 +872,23 @@ end
 
 -- GUI Creation
 local function CreateGui()
-    -- Main UI Frame
+    -- Main UI Frame with enhanced visibility settings
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "AimbotESPGui"
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = game.CoreGui
+    -- Only set these properties if they exist in this Roblox version
+    pcall(function() 
+        ScreenGui.DisplayOrder = 999 -- Ensure it appears above other GUIs
+    end)
+    
+    -- Try different parent methods to ensure GUI appears
+    local success = pcall(function()
+        ScreenGui.Parent = game:GetService("CoreGui")
+    end)
+    
+    if not success then
+        ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+    end
     
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
@@ -1623,8 +1635,10 @@ local function Initialize()
     -- Create FOV Circle
     UpdateFovCircle()
     
-    -- Create GUI
+    -- Create GUI and ensure it's visible
     local gui = CreateGui()
+    gui.Enabled = true -- Force GUI to be visible
+    GuiVisible = true
     
     -- Create Player ESP Objects
     for _, player in pairs(Players:GetPlayers()) do
