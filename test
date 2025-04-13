@@ -1,12 +1,318 @@
 --[[
-    Advanced Roblox Aimbot & ESP Script
+    Advanced Roblox Aimbot & ESP Script v2.0
     Features:
-    - Customizable GUI
-    - ESP with skeleton visualization
-    - Aimbot with wall and team checks
+    - Enhanced GUI with modern design
+    - ESP with skeleton visualization and color customization
+    - Advanced Aimbot with prediction and target selection
     - Performance optimization
     - Multiple customization options
 ]]
+
+-- Mock Roblox environment for standalone Lua testing
+local function CreateMockEnvironment()
+    print("Creating mock Roblox environment for standalone testing...")
+    
+    -- Create basic objects needed to simulate Roblox environment
+    _G.game = {
+        GetService = function(self, serviceName)
+            if not self.Services then
+                self.Services = {}
+            end
+            
+            if not self.Services[serviceName] then
+                if serviceName == "Players" then
+                    self.Services[serviceName] = {
+                        LocalPlayer = {
+                            GetMouse = function() 
+                                return {X = 0, Y = 0} 
+                            end,
+                            Name = "TestPlayer",
+                            Character = {},
+                            IsA = function(self, className) return className == "Player" end
+                        },
+                        GetPlayers = function() 
+                            local testPlayer = {
+                                Name = "TestPlayer1",
+                                Character = {
+                                    HumanoidRootPart = {
+                                        Position = Vector3.new(10, 5, 10)
+                                    },
+                                    Head = {
+                                        Position = Vector3.new(10, 7, 10)
+                                    },
+                                    FindFirstChild = function(_, name)
+                                        if name == "HumanoidRootPart" then
+                                            return {
+                                                Position = Vector3.new(10, 5, 10)
+                                            }
+                                        elseif name == "Head" then
+                                            return {
+                                                Position = Vector3.new(10, 7, 10)
+                                            }
+                                        end
+                                        return nil
+                                    end,
+                                    FindFirstChildOfClass = function() 
+                                        return {Health = 100} 
+                                    end,
+                                    GetChildren = function() return {} end
+                                },
+                                Team = nil,
+                                IsA = function(_, className) return className == "Player" end
+                            }
+                            return {self.Services[serviceName].LocalPlayer, testPlayer} 
+                        end,
+                        PlayerAdded = {
+                            Connect = function(_, callback) end
+                        },
+                        PlayerRemoving = {
+                            Connect = function(_, callback) end
+                        }
+                    }
+                elseif serviceName == "RunService" then
+                    self.Services[serviceName] = {
+                        RenderStepped = {
+                            Connect = function(_, callback) end
+                        }
+                    }
+                elseif serviceName == "UserInputService" then
+                    self.Services[serviceName] = {
+                        InputBegan = {
+                            Connect = function(_, callback) end
+                        },
+                        InputEnded = {
+                            Connect = function(_, callback) end
+                        },
+                        IsMouseButtonPressed = function() 
+                            return false 
+                        end
+                    }
+                elseif serviceName == "TweenService" then
+                    self.Services[serviceName] = {
+                        Create = function()
+                            return {
+                                Play = function() end
+                            }
+                        end
+                    }
+                elseif serviceName == "Workspace" then
+                    self.Services[serviceName] = {
+                        CurrentCamera = {
+                            ViewportSize = {X = 1920, Y = 1080},
+                            CFrame = {
+                                Position = {X = 0, Y = 0, Z = 0},
+                                Lerp = function() return {} end
+                            }
+                        }
+                    }
+                end
+            end
+            
+            return self.Services[serviceName] or {}
+        end,
+        CoreGui = {
+            ChildRemoved = {
+                Connect = function(_, callback) end
+            }
+        }
+    }
+    
+    _G.Drawing = {
+        new = function(type)
+            return {
+                Visible = false,
+                Color = {R = 1, G = 1, B = 1},
+                Thickness = 1,
+                Transparency = 1,
+                Radius = 5,
+                Position = {X = 0, Y = 0},
+                Size = {X = 0, Y = 0},
+                From = {X = 0, Y = 0},
+                To = {X = 0, Y = 0},
+                NumSides = 30,
+                Filled = false,
+                Text = "",
+                Font = 1,
+                Center = false,
+                Outline = false,
+                OutlineColor = {R = 0, G = 0, B = 0},
+                Remove = function() end
+            }
+        end
+    }
+    
+    _G.Instance = {
+        new = function(className)
+            local instance = {
+                Name = "",
+                Parent = nil,
+                Size = UDim2.new(),
+                Position = UDim2.new(),
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                BorderSizePixel = 0,
+                Text = "",
+                Visible = true,
+                ClassName = className,
+                MouseButton1Click = {
+                    Connect = function(_, callback) end
+                },
+                MouseButton1Down = {
+                    Connect = function(_, callback) end
+                },
+                MouseButton1Up = {
+                    Connect = function(_, callback) end
+                },
+                MouseMoved = {
+                    Connect = function(_, callback) end
+                },
+                GetPropertyChangedSignal = function() 
+                    return { 
+                        Connect = function() end 
+                    } 
+                end,
+                FindFirstChild = function() return nil end,
+                IsA = function(self, className) return self.ClassName == className end,
+                Remove = function() end,
+                GetChildren = function() return {} end
+            }
+            return instance
+        end
+    }
+    
+    _G.Color3 = {
+        fromRGB = function(r, g, b)
+            return {R = r/255, G = g/255, B = b/255}
+        end,
+        new = function(r, g, b)
+            return {R = r, G = g, B = b}
+        end
+    }
+    
+    _G.Vector2 = {
+        new = function(x, y)
+            return {
+                X = x or 0, 
+                Y = y or 0,
+                Magnitude = function(self) 
+                    return math.sqrt(self.X^2 + self.Y^2) 
+                end
+            }
+        end
+    }
+    
+    _G.Vector3 = {
+        new = function(x, y, z)
+            return {X = x or 0, Y = y or 0, Z = z or 0}
+        end
+    }
+    
+    _G.CFrame = {
+        new = function()
+            return {
+                Position = Vector3.new()
+            }
+        end
+    }
+    
+    _G.UDim = {
+        new = function(scale, offset)
+            return {
+                Scale = scale or 0,
+                Offset = offset or 0
+            }
+        end
+    }
+    
+    _G.UDim2 = {
+        new = function(scaleX, offsetX, scaleY, offsetY)
+            return {
+                X = {Scale = scaleX or 0, Offset = offsetX or 0},
+                Y = {Scale = scaleY or 0, Offset = offsetY or 0}
+            }
+        end
+    }
+    
+    _G.ColorSequence = {
+        new = function()
+            return {}
+        end
+    }
+    
+    _G.ColorSequenceKeypoint = {
+        new = function()
+            return {}
+        end
+    }
+    
+    _G.TweenInfo = {
+        new = function()
+            return {}
+        end
+    }
+    
+    _G.Enum = {
+        Font = {
+            SourceSans = "SourceSans",
+            SourceSansBold = "SourceSansBold",
+            GothamBold = "GothamBold",
+            Legacy = "Legacy"
+        },
+        TextXAlignment = {
+            Left = "Left",
+            Right = "Right",
+            Center = "Center"
+        },
+        TextTruncate = {
+            AtEnd = "AtEnd",
+            None = "None"
+        },
+        KeyCode = {
+            E = "E",
+            Q = "Q",
+            RightAlt = "RightAlt"
+        },
+        UserInputType = {
+            MouseButton1 = "MouseButton1",
+            MouseButton2 = "MouseButton2"
+        },
+        SortOrder = {
+            LayoutOrder = "LayoutOrder",
+            Name = "Name"
+        }
+    }
+    
+    -- Mock functions
+    _G.mousemoveabs = function(x, y) end
+    
+    -- Set up global references
+    for k, v in pairs(_G) do
+        if k ~= "game" then
+            _G[k] = v
+        end
+    end
+    
+    -- Export globals
+    game = _G.game
+    Drawing = _G.Drawing
+    Instance = _G.Instance
+    Color3 = _G.Color3
+    Vector2 = _G.Vector2
+    Vector3 = _G.Vector3
+    CFrame = _G.CFrame
+    UDim = _G.UDim
+    UDim2 = _G.UDim2
+    ColorSequence = _G.ColorSequence
+    ColorSequenceKeypoint = _G.ColorSequenceKeypoint
+    TweenInfo = _G.TweenInfo
+    Enum = _G.Enum
+    mousemoveabs = _G.mousemoveabs
+    
+    return true
+end
+
+-- Create mock environment for testing in standalone Lua
+local isTestEnvironment = CreateMockEnvironment()
+print("Running in test environment mode: " .. tostring(isTestEnvironment))
 
 -- Services
 local Players = game:GetService("Players")
@@ -25,6 +331,9 @@ local Drawing = Drawing
 local ESP_COLOR = Color3.fromRGB(255, 0, 0)
 local ESP_TEAM_COLOR = Color3.fromRGB(0, 255, 0)
 local AIMBOT_FOV_COLOR = Color3.fromRGB(255, 255, 255)
+local GUI_ACCENT_COLOR = Color3.fromRGB(60, 120, 216)
+local GUI_BACKGROUND_COLOR = Color3.fromRGB(25, 25, 25)
+local GUI_TEXT_COLOR = Color3.fromRGB(240, 240, 240)
 local DEFAULT_SETTINGS = {
     -- ESP Settings
     EspEnabled = true,
@@ -38,6 +347,9 @@ local DEFAULT_SETTINGS = {
     TeamColor = true,
     ShowTeam = false,
     MaxEspDistance = 1000,
+    CustomEspColor = Color3.fromRGB(255, 0, 0),    -- Added ESP color customization
+    CustomTeamEspColor = Color3.fromRGB(0, 255, 0), -- Added Team ESP color customization
+    EspTransparency = 1,                           -- Added ESP transparency
     
     -- Aimbot Settings
     AimbotEnabled = true,
@@ -52,6 +364,12 @@ local DEFAULT_SETTINGS = {
     ShowFov = true,
     VisibilityCheck = true,
     MaxDistance = 500,
+    PredictionEnabled = true,   -- Added prediction for moving targets
+    PredictionAmount = 0.165,   -- Prediction strength (higher = more prediction)
+    IgnoredPlayers = {},        -- Added player ignore list
+    
+    -- Visual Settings
+    CustomFovColor = Color3.fromRGB(255, 255, 255), -- Added FOV circle color customization
     
     -- Keybinds
     ToggleGuiKey = "RightControl"
@@ -122,16 +440,17 @@ local function UpdateFovCircle()
     if not FovCircle then
         FovCircle = CreateDrawing("Circle", {
             Visible = Settings.ShowFov and Settings.AimbotEnabled,
-            Color = AIMBOT_FOV_COLOR,
-            Thickness = 1,
+            Color = Settings.CustomFovColor,
+            Thickness = 1.5, -- Increased thickness for better visibility
             NumSides = 60,
             Filled = false,
-            Transparency = 0.5,
+            Transparency = 0.6, -- Slightly more opaque
             Radius = Settings.AimFov,
             Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         })
     else
         FovCircle.Visible = Settings.ShowFov and Settings.AimbotEnabled
+        FovCircle.Color = Settings.CustomFovColor
         FovCircle.Radius = Settings.AimFov
         FovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     end
@@ -143,39 +462,44 @@ local function CreateEspObject(player)
         return
     end
     
+    -- Create ESP objects with improved visuals and better accuracy
     EspObjects[player] = {
+        -- Box ESP with thicker lines for better visibility
         Box = CreateDrawing("Square", {
             Visible = false,
             Color = ESP_COLOR,
-            Thickness = 1,
+            Thickness = 1.5,  -- Increased thickness
             Filled = false,
-            Transparency = 1
+            Transparency = Settings.EspTransparency
         }),
+        -- Name ESP with improved font and better positioning
         Name = CreateDrawing("Text", {
             Visible = false,
             Color = ESP_COLOR,
             Font = 2,
-            Size = 13,
+            Size = 14,  -- Slightly larger text
             Center = true,
             Outline = true,
             OutlineColor = Color3.new(0, 0, 0),
-            Transparency = 1
+            Transparency = Settings.EspTransparency
         }),
+        -- Distance ESP with enhanced readability
         Distance = CreateDrawing("Text", {
             Visible = false,
             Color = ESP_COLOR,
             Font = 2,
-            Size = 13,
+            Size = 14,  -- Consistent size with name
             Center = true,
             Outline = true,
             OutlineColor = Color3.new(0, 0, 0),
-            Transparency = 1
+            Transparency = Settings.EspTransparency
         }),
+        -- Improved head dot with better circle quality
         HeadDot = CreateDrawing("Circle", {
             Visible = false,
             Color = ESP_COLOR,
             Thickness = 1,
-            NumSides = 30,
+            NumSides = 36,  -- More sides for smoother circle
             Filled = true,
             Transparency = 1,
             Radius = 3
@@ -275,222 +599,252 @@ local function UpdateEsp()
     for player, objects in pairs(EspObjects) do
         if not player:IsA("Player") or player == LocalPlayer then
             RemoveEspObject(player)
-            continue
-        end
-        
-        if not IsAlive(player) then
-            for _, obj in pairs(objects) do
-                obj.Visible = false
-            end
-            
-            if SkeletonObjects[player] then
-                for _, obj in pairs(SkeletonObjects[player]) do
+        else
+            if not IsAlive(player) then
+                for _, obj in pairs(objects) do
                     obj.Visible = false
                 end
-            end
-            
-            continue
-        end
-        
-        local character = player.Character
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        local head = character:FindFirstChild("Head")
-        
-        if not rootPart or not head then
-            continue
-        end
-        
-        local onTeam = IsOnTeam(player)
-        
-        if (Settings.TeamCheck and onTeam and not Settings.ShowTeam) then
-            for _, obj in pairs(objects) do
-                obj.Visible = false
-            end
-            
-            if SkeletonObjects[player] then
-                for _, obj in pairs(SkeletonObjects[player]) do
-                    obj.Visible = false
-                end
-            end
-            
-            continue
-        end
-        
-        local distance = GetDistanceFromCamera(rootPart.Position)
-        if distance > Settings.MaxEspDistance then
-            for _, obj in pairs(objects) do
-                obj.Visible = false
-            end
-            
-            if SkeletonObjects[player] then
-                for _, obj in pairs(SkeletonObjects[player]) do
-                    obj.Visible = false
-                end
-            end
-            
-            continue
-        end
-        
-        local color = ESP_COLOR
-        if Settings.TeamColor and onTeam then
-            color = ESP_TEAM_COLOR
-        end
-        
-        local isVisible = IsVisible(character, rootPart)
-        
-        -- Update ESP elements based on settings
-        local rootPos, rootOnScreen, rootDepth = GetVector2FromVector3(rootPart.Position)
-        local headPos, headOnScreen = GetVector2FromVector3(head.Position + Vector3.new(0, 0.5, 0))
-        
-        if rootOnScreen then
-            local sizeX = 2000 / rootDepth
-            local sizeY = 2350 / rootDepth
-            
-            -- Update Box ESP
-            objects.Box.Visible = Settings.EspEnabled and Settings.BoxEsp
-            objects.Box.Size = Vector2.new(sizeX, sizeY)
-            objects.Box.Position = rootPos - Vector2.new(sizeX / 2, sizeY / 2)
-            objects.Box.Color = color
-            
-            -- Update Name ESP
-            objects.Name.Visible = Settings.EspEnabled and Settings.NameEsp
-            objects.Name.Position = Vector2.new(rootPos.X, (rootPos.Y - sizeY / 2) - 15)
-            objects.Name.Text = player.Name
-            objects.Name.Color = color
-            
-            -- Update Distance ESP
-            objects.Distance.Visible = Settings.EspEnabled and Settings.DistanceEsp
-            objects.Distance.Position = Vector2.new(rootPos.X, (rootPos.Y + sizeY / 2) + 5)
-            objects.Distance.Text = math.floor(distance) .. "m"
-            objects.Distance.Color = color
-            
-            -- Update Head Dot ESP
-            if headOnScreen then
-                objects.HeadDot.Visible = Settings.EspEnabled and Settings.HeadDotEsp
-                objects.HeadDot.Position = headPos
-                objects.HeadDot.Color = color
-            else
-                objects.HeadDot.Visible = false
-            end
-            
-            -- Update Tracer ESP
-            objects.Tracer.Visible = Settings.EspEnabled and Settings.TracerEsp
-            objects.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-            objects.Tracer.To = Vector2.new(rootPos.X, rootPos.Y + sizeY / 2)
-            objects.Tracer.Color = color
-            
-            -- Update Skeleton ESP
-            if Settings.EspEnabled and Settings.SkeletonEsp then
-                local upperTorso = character:FindFirstChild("UpperTorso")
-                local lowerTorso = character:FindFirstChild("LowerTorso")
-                local leftUpperLeg = character:FindFirstChild("LeftUpperLeg")
-                local rightUpperLeg = character:FindFirstChild("RightUpperLeg")
-                local leftLowerLeg = character:FindFirstChild("LeftLowerLeg")
-                local rightLowerLeg = character:FindFirstChild("RightLowerLeg")
-                local leftUpperArm = character:FindFirstChild("LeftUpperArm")
-                local rightUpperArm = character:FindFirstChild("RightUpperArm")
-                local leftLowerArm = character:FindFirstChild("LeftLowerArm")
-                local rightLowerArm = character:FindFirstChild("RightLowerArm")
                 
-                if upperTorso and lowerTorso and leftUpperLeg and rightUpperLeg and leftLowerLeg and rightLowerLeg and leftUpperArm and rightUpperArm and leftLowerArm and rightLowerArm then
-                    local skeletonLines = {
-                        {SkeletonObjects[player].Head_UpperTorso, head, upperTorso},
-                        {SkeletonObjects[player].UpperTorso_LowerTorso, upperTorso, lowerTorso},
-                        {SkeletonObjects[player].LowerTorso_LeftUpperLeg, lowerTorso, leftUpperLeg},
-                        {SkeletonObjects[player].LowerTorso_RightUpperLeg, lowerTorso, rightUpperLeg},
-                        {SkeletonObjects[player].LeftUpperLeg_LeftLowerLeg, leftUpperLeg, leftLowerLeg},
-                        {SkeletonObjects[player].RightUpperLeg_RightLowerLeg, rightUpperLeg, rightLowerLeg},
-                        {SkeletonObjects[player].UpperTorso_LeftUpperArm, upperTorso, leftUpperArm},
-                        {SkeletonObjects[player].UpperTorso_RightUpperArm, upperTorso, rightUpperArm},
-                        {SkeletonObjects[player].LeftUpperArm_LeftLowerArm, leftUpperArm, leftLowerArm},
-                        {SkeletonObjects[player].RightUpperArm_RightLowerArm, rightUpperArm, rightLowerArm}
-                    }
-                    
-                    for _, data in ipairs(skeletonLines) do
-                        local line, part1, part2 = unpack(data)
-                        local pos1, onScreen1 = GetVector2FromVector3(part1.Position)
-                        local pos2, onScreen2 = GetVector2FromVector3(part2.Position)
-                        
-                        if onScreen1 and onScreen2 then
-                            line.Visible = true
-                            line.From = pos1
-                            line.To = pos2
-                            line.Color = color
-                        else
-                            line.Visible = false
-                        end
-                    end
-                else
+                if SkeletonObjects[player] then
                     for _, obj in pairs(SkeletonObjects[player]) do
                         obj.Visible = false
                     end
                 end
             else
-                for _, obj in pairs(SkeletonObjects[player]) do
-                    obj.Visible = false
-                end
-            end
-        else
-            for _, obj in pairs(objects) do
-                obj.Visible = false
-            end
-            
-            if SkeletonObjects[player] then
-                for _, obj in pairs(SkeletonObjects[player]) do
-                    obj.Visible = false
+                local character = player.Character
+                local rootPart = character:FindFirstChild("HumanoidRootPart")
+                local head = character:FindFirstChild("Head")
+                
+                if rootPart and head then
+                    local onTeam = IsOnTeam(player)
+                    
+                    if (Settings.TeamCheck and onTeam and not Settings.ShowTeam) then
+                        for _, obj in pairs(objects) do
+                            obj.Visible = false
+                        end
+                        
+                        if SkeletonObjects[player] then
+                            for _, obj in pairs(SkeletonObjects[player]) do
+                                obj.Visible = false
+                            end
+                        end
+                    else
+                        local distance = GetDistanceFromCamera(rootPart.Position)
+                        if distance > Settings.MaxEspDistance then
+                            for _, obj in pairs(objects) do
+                                obj.Visible = false
+                            end
+                            
+                            if SkeletonObjects[player] then
+                                for _, obj in pairs(SkeletonObjects[player]) do
+                                    obj.Visible = false
+                                end
+                            end
+                        else
+                            local color = Settings.CustomEspColor
+                            if Settings.TeamColor and onTeam then
+                                color = Settings.CustomTeamEspColor
+                            end
+                            
+                            local isVisible = IsVisible(character, rootPart)
+                            
+                            -- Update ESP elements based on settings
+                            local rootPos, rootOnScreen, rootDepth = GetVector2FromVector3(rootPart.Position)
+                            local headPos, headOnScreen = GetVector2FromVector3(head.Position + Vector3.new(0, 0.5, 0))
+                            
+                            if rootOnScreen then
+                                local sizeX = 2000 / rootDepth
+                                local sizeY = 2350 / rootDepth
+                                
+                                -- Update Box ESP
+                                objects.Box.Visible = Settings.EspEnabled and Settings.BoxEsp
+                                objects.Box.Size = Vector2.new(sizeX, sizeY)
+                                objects.Box.Position = rootPos - Vector2.new(sizeX / 2, sizeY / 2)
+                                objects.Box.Color = color
+                                
+                                -- Update Name ESP
+                                objects.Name.Visible = Settings.EspEnabled and Settings.NameEsp
+                                objects.Name.Position = Vector2.new(rootPos.X, (rootPos.Y - sizeY / 2) - 15)
+                                objects.Name.Text = player.Name
+                                objects.Name.Color = color
+                                
+                                -- Update Distance ESP
+                                objects.Distance.Visible = Settings.EspEnabled and Settings.DistanceEsp
+                                objects.Distance.Position = Vector2.new(rootPos.X, (rootPos.Y + sizeY / 2) + 5)
+                                objects.Distance.Text = math.floor(distance) .. "m"
+                                objects.Distance.Color = color
+                                
+                                -- Update Head Dot ESP
+                                if headOnScreen then
+                                    objects.HeadDot.Visible = Settings.EspEnabled and Settings.HeadDotEsp
+                                    objects.HeadDot.Position = headPos
+                                    objects.HeadDot.Color = color
+                                else
+                                    objects.HeadDot.Visible = false
+                                end
+                                
+                                -- Update Tracer ESP
+                                objects.Tracer.Visible = Settings.EspEnabled and Settings.TracerEsp
+                                objects.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                                objects.Tracer.To = Vector2.new(rootPos.X, rootPos.Y + sizeY / 2)
+                                objects.Tracer.Color = color
+                                
+                                -- Update Skeleton ESP
+                                if Settings.EspEnabled and Settings.SkeletonEsp then
+                                    local upperTorso = character:FindFirstChild("UpperTorso")
+                                    local lowerTorso = character:FindFirstChild("LowerTorso")
+                                    local leftUpperLeg = character:FindFirstChild("LeftUpperLeg")
+                                    local rightUpperLeg = character:FindFirstChild("RightUpperLeg")
+                                    local leftLowerLeg = character:FindFirstChild("LeftLowerLeg")
+                                    local rightLowerLeg = character:FindFirstChild("RightLowerLeg")
+                                    local leftUpperArm = character:FindFirstChild("LeftUpperArm")
+                                    local rightUpperArm = character:FindFirstChild("RightUpperArm")
+                                    local leftLowerArm = character:FindFirstChild("LeftLowerArm")
+                                    local rightLowerArm = character:FindFirstChild("RightLowerArm")
+                                    
+                                    if upperTorso and lowerTorso and leftUpperLeg and rightUpperLeg and leftLowerLeg and rightLowerLeg and leftUpperArm and rightUpperArm and leftLowerArm and rightLowerArm then
+                                        local skeletonLines = {
+                                            {SkeletonObjects[player].Head_UpperTorso, head, upperTorso},
+                                            {SkeletonObjects[player].UpperTorso_LowerTorso, upperTorso, lowerTorso},
+                                            {SkeletonObjects[player].LowerTorso_LeftUpperLeg, lowerTorso, leftUpperLeg},
+                                            {SkeletonObjects[player].LowerTorso_RightUpperLeg, lowerTorso, rightUpperLeg},
+                                            {SkeletonObjects[player].LeftUpperLeg_LeftLowerLeg, leftUpperLeg, leftLowerLeg},
+                                            {SkeletonObjects[player].RightUpperLeg_RightLowerLeg, rightUpperLeg, rightLowerLeg},
+                                            {SkeletonObjects[player].UpperTorso_LeftUpperArm, upperTorso, leftUpperArm},
+                                            {SkeletonObjects[player].UpperTorso_RightUpperArm, upperTorso, rightUpperArm},
+                                            {SkeletonObjects[player].LeftUpperArm_LeftLowerArm, leftUpperArm, leftLowerArm},
+                                            {SkeletonObjects[player].RightUpperArm_RightLowerArm, rightUpperArm, rightLowerArm}
+                                        }
+                                        
+                                        for _, data in ipairs(skeletonLines) do
+                                            local line, part1, part2 = unpack(data)
+                                            local pos1, onScreen1 = GetVector2FromVector3(part1.Position)
+                                            local pos2, onScreen2 = GetVector2FromVector3(part2.Position)
+                                            
+                                            if onScreen1 and onScreen2 then
+                                                line.Visible = true
+                                                line.From = pos1
+                                                line.To = pos2
+                                                line.Color = color
+                                            else
+                                                line.Visible = false
+                                            end
+                                        end
+                                    else
+                                        for _, obj in pairs(SkeletonObjects[player]) do
+                                            obj.Visible = false
+                                        end
+                                    end
+                                else
+                                    for _, obj in pairs(SkeletonObjects[player]) do
+                                        obj.Visible = false
+                                    end
+                                end
+                            else
+                                for _, obj in pairs(objects) do
+                                    obj.Visible = false
+                                end
+                                
+                                if SkeletonObjects[player] then
+                                    for _, obj in pairs(SkeletonObjects[player]) do
+                                        obj.Visible = false
+                                    end
+                                end
+                            end
+                        end
+                    end
                 end
             end
         end
     end
 end
-
 -- Aimbot Functions
+local function IsPlayerIgnored(playerName)
+    return table.find(Settings.IgnoredPlayers, playerName) ~= nil
+end
+
 local function GetClosestPlayerToMouse()
     local closest = nil
     local shortestDistance = math.huge
     
     for _, player in pairs(Players:GetPlayers()) do
-        if player == LocalPlayer then continue end
-        
-        local character = player.Character
-        if not character or not IsAlive(player) then continue end
-        
-        local onTeam = IsOnTeam(player)
-        if Settings.TeamCheckAimbot and onTeam then continue end
-        
-        local part = character:FindFirstChild(Settings.AimPart)
-        if not part then continue end
-        
-        if Settings.WallCheck and not IsVisible(character, part) then continue end
-        
-        local pos, onScreen = GetVector2FromVector3(part.Position)
-        if not onScreen then continue end
-        
-        local distance = GetDistanceFromCamera(part.Position)
-        if distance > Settings.MaxDistance then continue end
-        
-        local mouseDist = (pos - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-        if mouseDist > Settings.AimFov then continue end
-        
-        if mouseDist < shortestDistance then
-            shortestDistance = mouseDist
-            closest = {
-                Player = player,
-                Character = character,
-                Part = part,
-                Position = pos
-            }
+        if player ~= LocalPlayer then
+            -- Only process non-ignored players
+            if not IsPlayerIgnored(player.Name) then
+                -- Check if character is valid and alive
+                local character = player.Character
+                if character and IsAlive(player) then
+                    -- Check team settings
+                    local onTeam = IsOnTeam(player)
+                    if not (Settings.TeamCheckAimbot and onTeam) then
+                        -- Check if aim part exists
+                        local part = character:FindFirstChild(Settings.AimPart)
+                        if part then
+                            -- Check wall visibility if enabled
+                            if not (Settings.WallCheck and not IsVisible(character, part)) then
+                                -- Verify target is on screen
+                                local pos, onScreen = GetVector2FromVector3(part.Position)
+                                if onScreen then
+                                    -- Verify target is within max distance
+                                    local distance = GetDistanceFromCamera(part.Position)
+                                    if distance <= Settings.MaxDistance then
+                                        -- Verify target is within FOV
+                                        local mouseDist = (pos - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                                        if mouseDist <= Settings.AimFov then
+                                            -- Update if this is the closest target so far
+                                            if mouseDist < shortestDistance then
+                                                shortestDistance = mouseDist
+                                                closest = {
+                                                    Player = player,
+                                                    Character = character,
+                                                    Part = part,
+                                                    Position = pos
+                                                }
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
     
     return closest
 end
 
+local function CalculatePrediction(part)
+    -- Calculate predicted position based on target velocity with improved accuracy
+    if not Settings.PredictionEnabled then
+        return part.Position
+    end
+    
+    -- Get target velocity and calculate ping/latency compensation
+    local targetVelocity = part.Velocity
+    local predictionAmount = Settings.PredictionAmount
+    
+    -- Use advanced prediction based on distance and velocity magnitude
+    local distance = (Camera.CFrame.Position - part.Position).Magnitude
+    local pingFactor = math.clamp(distance / 100, 1, 3) -- Adjust prediction based on distance
+    
+    -- Calculate velocity magnitude for speed-based prediction adjustment
+    local speedFactor = math.clamp(targetVelocity.Magnitude / 16, 0.5, 2)
+    
+    -- Apply additional gravity prediction for jumping/falling targets
+    local gravityCompensation = Vector3.new(0, 0.03 * predictionAmount, 0)
+    
+    -- Calculate the predicted position with enhanced accuracy
+    return part.Position + (targetVelocity * predictionAmount * pingFactor * speedFactor) + gravityCompensation
+end
+
 local function AimAt(position)
     if Settings.AimType == "Camera" then
-        local targetPos = position.Part.Position
+        -- Apply prediction to improve tracking of moving targets
+        local predictedPos = CalculatePrediction(position.Part)
         local cameraPos = Camera.CFrame.Position
-        local newCFrame = CFrame.new(cameraPos, targetPos)
+        local newCFrame = CFrame.new(cameraPos, predictedPos)
         
         if Settings.AimSmoothing then
             Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Settings.Smoothness)
@@ -498,7 +852,13 @@ local function AimAt(position)
             Camera.CFrame = newCFrame
         end
     elseif Settings.AimType == "Mouse" then
-        local x, y = position.Position.X, position.Position.Y
+        -- Calculate prediction for mouse aim
+        local predictedPos = CalculatePrediction(position.Part)
+        local predictedScreenPos, onScreen = GetVector2FromVector3(predictedPos)
+        
+        if not onScreen then return end
+        
+        local x, y = predictedScreenPos.X, predictedScreenPos.Y
         
         if Settings.AimSmoothing then
             local currentX, currentY = Mouse.X, Mouse.Y
@@ -528,20 +888,29 @@ local function CreateGui()
     MainFrame.Draggable = true
     MainFrame.Parent = ScreenGui
     
-    -- Title
+    -- Title with improved design
     local TitleFrame = Instance.new("Frame")
     TitleFrame.Name = "TitleFrame"
     TitleFrame.Size = UDim2.new(1, 0, 0, 30)
-    TitleFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    TitleFrame.BackgroundColor3 = GUI_ACCENT_COLOR
     TitleFrame.BorderSizePixel = 0
     TitleFrame.Parent = MainFrame
+    
+    -- Add gradient to title for better visual appeal
+    local TitleGradient = Instance.new("UIGradient")
+    TitleGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, GUI_ACCENT_COLOR),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(GUI_ACCENT_COLOR.R * 0.8, GUI_ACCENT_COLOR.G * 0.8, GUI_ACCENT_COLOR.B * 0.8))
+    })
+    TitleGradient.Rotation = 90
+    TitleGradient.Parent = TitleFrame
     
     local TitleText = Instance.new("TextLabel")
     TitleText.Name = "TitleText"
     TitleText.Size = UDim2.new(1, 0, 1, 0)
     TitleText.BackgroundTransparency = 1
-    TitleText.Text = "Aimbot & ESP"
-    TitleText.Font = Enum.Font.SourceSansBold
+    TitleText.Text = "Advanced Aimbot & ESP"
+    TitleText.Font = Enum.Font.GothamBold
     TitleText.TextSize = 18
     TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleText.Parent = TitleFrame
@@ -925,7 +1294,106 @@ local function CreateGui()
         Settings.ShowTeam = value
     end)
     
-    CreateSlider(EspSettingsFrame, 400, "Max ESP Distance", 100, 5000, Settings.MaxEspDistance, function(value)
+    -- ESP Transparency Slider for advanced customization
+    CreateSlider(EspSettingsFrame, 400, "ESP Transparency", 0, 1, Settings.EspTransparency, function(value)
+        Settings.EspTransparency = value
+        -- Update transparency for all ESP objects
+        for _, objects in pairs(EspObjects) do
+            for objName, obj in pairs(objects) do
+                if objName ~= "Tracer" then  -- Skip tracer as it needs to be always visible
+                    obj.Transparency = value
+                end
+            end
+        end
+    end)
+    
+    -- Create enhanced color pickers for ESP with better visuals
+    local EspColorPickerFrame = Instance.new("Frame")
+    EspColorPickerFrame.Name = "EspColorPickerFrame"
+    EspColorPickerFrame.Size = UDim2.new(1, 0, 0, 80)  -- Taller for better display
+    EspColorPickerFrame.Position = UDim2.new(0, 0, 0, 460)
+    EspColorPickerFrame.BackgroundTransparency = 0.9
+    EspColorPickerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    EspColorPickerFrame.BorderSizePixel = 1
+    EspColorPickerFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
+    EspColorPickerFrame.Parent = EspSettingsFrame
+    
+    -- Add rounded corners for better appearance
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 6)
+    UICorner.Parent = EspColorPickerFrame
+    
+    local EspColorLabel = Instance.new("TextLabel")
+    EspColorLabel.Name = "EspColorLabel"
+    EspColorLabel.Size = UDim2.new(1, 0, 0, 25)
+    EspColorLabel.Position = UDim2.new(0, 10, 0, 5)
+    EspColorLabel.BackgroundTransparency = 1
+    EspColorLabel.Text = "ESP Color Customization"
+    EspColorLabel.Font = Enum.Font.SourceSansBold
+    EspColorLabel.TextSize = 16
+    EspColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    EspColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    EspColorLabel.Parent = EspColorPickerFrame
+    
+    -- Enemy ESP Color
+    local EnemyColorLabel = Instance.new("TextLabel")
+    EnemyColorLabel.Name = "EnemyColorLabel"
+    EnemyColorLabel.Size = UDim2.new(0.6, 0, 0, 20)
+    EnemyColorLabel.Position = UDim2.new(0, 15, 0, 35)
+    EnemyColorLabel.BackgroundTransparency = 1
+    EnemyColorLabel.Text = "Enemy ESP Color"
+    EnemyColorLabel.Font = Enum.Font.SourceSans
+    EnemyColorLabel.TextSize = 14
+    EnemyColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    EnemyColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    EnemyColorLabel.Parent = EspColorPickerFrame
+    
+    local EspColorPreview = Instance.new("Frame")
+    EspColorPreview.Name = "EspColorPreview"
+    EspColorPreview.Size = UDim2.new(0, 40, 0, 20)
+    EspColorPreview.Position = UDim2.new(1, -60, 0, 35)
+    EspColorPreview.BackgroundColor3 = Settings.CustomEspColor
+    EspColorPreview.BorderSizePixel = 1
+    EspColorPreview.BorderColor3 = Color3.fromRGB(100, 100, 100)
+    EspColorPreview.Parent = EspColorPickerFrame
+    
+    -- Add rounded corners to color preview
+    local ColorCorner = Instance.new("UICorner")
+    ColorCorner.CornerRadius = UDim.new(0, 4)
+    ColorCorner.Parent = EspColorPreview
+    
+    local TeamColorPickerFrame = Instance.new("Frame")
+    TeamColorPickerFrame.Name = "TeamColorPickerFrame"
+    TeamColorPickerFrame.Size = UDim2.new(1, 0, 0, 30)
+    TeamColorPickerFrame.Position = UDim2.new(0, 0, 0, 440)
+    TeamColorPickerFrame.BackgroundTransparency = 1
+    TeamColorPickerFrame.Parent = EspSettingsFrame
+    
+    local TeamColorLabel = Instance.new("TextLabel")
+    TeamColorLabel.Name = "TeamColorLabel"
+    TeamColorLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    TeamColorLabel.BackgroundTransparency = 1
+    TeamColorLabel.Text = "Team ESP Color"
+    TeamColorLabel.Font = Enum.Font.SourceSans
+    TeamColorLabel.TextSize = 16
+    TeamColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TeamColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TeamColorLabel.Parent = TeamColorPickerFrame
+    
+    local TeamColorPreview = Instance.new("Frame")
+    TeamColorPreview.Name = "TeamColorPreview"
+    TeamColorPreview.Size = UDim2.new(0, 30, 0, 20)
+    TeamColorPreview.Position = UDim2.new(1, -40, 0.5, -10)
+    TeamColorPreview.BackgroundColor3 = Settings.CustomTeamEspColor
+    TeamColorPreview.BorderSizePixel = 1
+    TeamColorPreview.BorderColor3 = Color3.fromRGB(100, 100, 100)
+    TeamColorPreview.Parent = TeamColorPickerFrame
+    
+    CreateSlider(EspSettingsFrame, 480, "ESP Transparency", 0.1, 1, Settings.EspTransparency, function(value)
+        Settings.EspTransparency = value
+    end)
+    
+    CreateSlider(EspSettingsFrame, 540, "Max ESP Distance", 100, 5000, Settings.MaxEspDistance, function(value)
         Settings.MaxEspDistance = value
     end)
     
@@ -976,7 +1444,178 @@ local function CreateGui()
         Settings.MaxDistance = value
     end)
     
+    -- Add Prediction Controls
+    CreateToggle(AimbotSettingsFrame, 500, "Prediction", Settings.PredictionEnabled, function(value)
+        Settings.PredictionEnabled = value
+    end)
+    
+    CreateSlider(AimbotSettingsFrame, 540, "Prediction Amount", 0.05, 0.5, Settings.PredictionAmount, function(value)
+        Settings.PredictionAmount = value
+    end)
+    
+    -- Create FOV Circle Color Picker
+    local FovColorPickerFrame = Instance.new("Frame")
+    FovColorPickerFrame.Name = "FovColorPickerFrame"
+    FovColorPickerFrame.Size = UDim2.new(1, 0, 0, 30)
+    FovColorPickerFrame.Position = UDim2.new(0, 0, 0, 600)
+    FovColorPickerFrame.BackgroundTransparency = 1
+    FovColorPickerFrame.Parent = AimbotSettingsFrame
+    
+    local FovColorLabel = Instance.new("TextLabel")
+    FovColorLabel.Name = "FovColorLabel"
+    FovColorLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    FovColorLabel.BackgroundTransparency = 1
+    FovColorLabel.Text = "FOV Circle Color"
+    FovColorLabel.Font = Enum.Font.SourceSans
+    FovColorLabel.TextSize = 16
+    FovColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    FovColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    FovColorLabel.Parent = FovColorPickerFrame
+    
+    local FovColorPreview = Instance.new("Frame")
+    FovColorPreview.Name = "FovColorPreview"
+    FovColorPreview.Size = UDim2.new(0, 30, 0, 20)
+    FovColorPreview.Position = UDim2.new(1, -40, 0.5, -10)
+    FovColorPreview.BackgroundColor3 = Settings.CustomFovColor
+    FovColorPreview.BorderSizePixel = 1
+    FovColorPreview.BorderColor3 = Color3.fromRGB(100, 100, 100)
+    FovColorPreview.Parent = FovColorPickerFrame
+    
+    -- Create Player Ignore Section
+    local IgnorePlayersLabel = Instance.new("TextLabel")
+    IgnorePlayersLabel.Name = "IgnorePlayersLabel"
+    IgnorePlayersLabel.Size = UDim2.new(1, 0, 0, 20)
+    IgnorePlayersLabel.Position = UDim2.new(0, 0, 0, 650)
+    IgnorePlayersLabel.BackgroundTransparency = 1
+    IgnorePlayersLabel.Text = "Ignored Players:"
+    IgnorePlayersLabel.Font = Enum.Font.SourceSansBold
+    IgnorePlayersLabel.TextSize = 16
+    IgnorePlayersLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    IgnorePlayersLabel.TextXAlignment = Enum.TextXAlignment.Left
+    IgnorePlayersLabel.Parent = AimbotSettingsFrame
+    
+    local IgnorePlayersFrame = Instance.new("Frame")
+    IgnorePlayersFrame.Name = "IgnorePlayersFrame"
+    IgnorePlayersFrame.Size = UDim2.new(1, 0, 0, 120)
+    IgnorePlayersFrame.Position = UDim2.new(0, 0, 0, 680)
+    IgnorePlayersFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    IgnorePlayersFrame.BorderSizePixel = 1
+    IgnorePlayersFrame.BorderColor3 = Color3.fromRGB(60, 60, 60)
+    IgnorePlayersFrame.Parent = AimbotSettingsFrame
+    
+    local IgnorePlayersScrollFrame = Instance.new("ScrollingFrame")
+    IgnorePlayersScrollFrame.Name = "IgnorePlayersScrollFrame"
+    IgnorePlayersScrollFrame.Size = UDim2.new(1, -10, 1, -10)
+    IgnorePlayersScrollFrame.Position = UDim2.new(0, 5, 0, 5)
+    IgnorePlayersScrollFrame.BackgroundTransparency = 1
+    IgnorePlayersScrollFrame.BorderSizePixel = 0
+    IgnorePlayersScrollFrame.ScrollBarThickness = 5
+    IgnorePlayersScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    IgnorePlayersScrollFrame.Parent = IgnorePlayersFrame
+    
+    local IgnorePlayersList = Instance.new("UIListLayout")
+    IgnorePlayersList.Name = "IgnorePlayersList"
+    IgnorePlayersList.Padding = UDim.new(0, 5)
+    IgnorePlayersList.SortOrder = Enum.SortOrder.LayoutOrder
+    IgnorePlayersList.Parent = IgnorePlayersScrollFrame
+    
+    local function UpdateIgnoredPlayersList()
+        -- Clear existing entries
+        for _, child in pairs(IgnorePlayersScrollFrame:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+        
+        -- Add ignored players
+        local yOffset = 0
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                local playerEntry = Instance.new("Frame")
+                playerEntry.Name = player.Name .. "Entry"
+                playerEntry.Size = UDim2.new(1, -10, 0, 25)
+                playerEntry.Position = UDim2.new(0, 5, 0, yOffset)
+                playerEntry.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                playerEntry.BorderSizePixel = 0
+                playerEntry.Parent = IgnorePlayersScrollFrame
+                
+                local playerLabel = Instance.new("TextLabel")
+                playerLabel.Name = "PlayerLabel"
+                playerLabel.Size = UDim2.new(0.7, 0, 1, 0)
+                playerLabel.BackgroundTransparency = 1
+                playerLabel.Text = player.Name
+                playerLabel.Font = Enum.Font.SourceSans
+                playerLabel.TextSize = 14
+                playerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                playerLabel.TextXAlignment = Enum.TextXAlignment.Left
+                playerLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                playerLabel.Parent = playerEntry
+                
+                local isIgnored = table.find(Settings.IgnoredPlayers, player.Name) ~= nil
+                
+                local ignoreToggle = Instance.new("Frame")
+                ignoreToggle.Name = "IgnoreToggle"
+                ignoreToggle.Size = UDim2.new(0, 30, 0, 15)
+                ignoreToggle.Position = UDim2.new(1, -40, 0.5, -7.5)
+                ignoreToggle.BackgroundColor3 = isIgnored and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 100, 100)
+                ignoreToggle.BorderSizePixel = 0
+                ignoreToggle.Parent = playerEntry
+                
+                local toggleCorner = Instance.new("UICorner")
+                toggleCorner.CornerRadius = UDim.new(0, 7)
+                toggleCorner.Parent = ignoreToggle
+                
+                local ignoreButton = Instance.new("TextButton")
+                ignoreButton.Name = "IgnoreButton"
+                ignoreButton.Size = UDim2.new(1, 0, 1, 0)
+                ignoreButton.BackgroundTransparency = 1
+                ignoreButton.Text = ""
+                ignoreButton.Parent = playerEntry
+                
+                ignoreButton.MouseButton1Click:Connect(function()
+                    local index = table.find(Settings.IgnoredPlayers, player.Name)
+                    if index then
+                        table.remove(Settings.IgnoredPlayers, index)
+                        ignoreToggle.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+                    else
+                        table.insert(Settings.IgnoredPlayers, player.Name)
+                        ignoreToggle.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+                    end
+                end)
+                
+                yOffset = yOffset + 30
+            end
+        end
+        
+        IgnorePlayersScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
+    end
+    
+    -- Update Ignored Players list initially
+    UpdateIgnoredPlayersList()
+    
+    -- Update Ignored Players list when players join/leave
+    Players.PlayerAdded:Connect(UpdateIgnoredPlayersList)
+    Players.PlayerRemoving:Connect(UpdateIgnoredPlayersList)
+    
+    -- Adjust canvas size for Aimbot Settings Frame to fit all controls
+    AimbotSettingsFrame.CanvasSize = UDim2.new(0, 0, 0, 810)
+    
+    -- Adjust ESP Settings Frame canvas size
+    EspSettingsFrame.CanvasSize = UDim2.new(0, 0, 0, 600)
+    
     return ScreenGui
+end
+
+-- Implementation of table.find for Lua 5.1 which doesn't have it natively
+if not table.find then
+    table.find = function(tbl, value)
+        for i, v in ipairs(tbl) do
+            if v == value then
+                return i
+            end
+        end
+        return nil
+    end
 end
 
 -- Script Initialization
@@ -1033,21 +1672,23 @@ local function Initialize()
     end)
     
     -- Script cleanup on termination
-    game:GetService("CoreGui").ChildRemoved:Connect(function(child)
-        if child.Name == "AimbotESPGui" then
-            if FovCircle then
-                FovCircle:Remove()
-                FovCircle = nil
+    if game:GetService("CoreGui") and game:GetService("CoreGui").ChildRemoved then
+        game:GetService("CoreGui").ChildRemoved:Connect(function(child)
+            if child.Name == "AimbotESPGui" then
+                if FovCircle then
+                    FovCircle:Remove()
+                    FovCircle = nil
+                end
+                
+                for player, objects in pairs(EspObjects) do
+                    RemoveEspObject(player)
+                end
+                
+                EspObjects = {}
+                SkeletonObjects = {}
             end
-            
-            for player, objects in pairs(EspObjects) do
-                RemoveEspObject(player)
-            end
-            
-            EspObjects = {}
-            SkeletonObjects = {}
-        end
-    end)
+        end)
+    end
 end
 
 Initialize()
