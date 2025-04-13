@@ -382,6 +382,7 @@ local SkeletonObjects = {}
 local AimbotTarget = nil
 local FovCircle = nil
 local GuiVisible = true -- Always start with GUI visible
+local MainGui = nil -- Store direct reference to the GUI
 
 -- Helper Functions
 local function IsAlive(player)
@@ -870,25 +871,124 @@ local function AimAt(position)
     end
 end
 
+-- Helper function for security bypass
+local function securityBypass()
+    local bypass = false
+    
+    -- Method 1: Standard protection bypass
+    pcall(function()
+        if syn and syn.protect_gui then
+            bypass = true
+            return syn.protect_gui
+        end
+    end)
+    
+    -- Method 2: Alternative protection method (Synapse X, Script-Ware, Krnl)
+    if not bypass then
+        pcall(function()
+            if get_hidden_gui or gethui then
+                bypass = true
+                return get_hidden_gui or gethui
+            end
+        end)
+    end
+    
+    -- Method 3: Check for secure parent
+    if not bypass then
+        pcall(function()
+            if COREGUI_PROTECTION then
+                bypass = true
+                return COREGUI_PROTECTION 
+            end
+        end)
+    end
+    
+    return bypass
+end
+
 -- GUI Creation
 local function CreateGui()
-    -- Main UI Frame with enhanced visibility settings
+    -- Create the ScreenGui with all settings for maximum visibility
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "AimbotESPGui"
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.ResetOnSpawn = false
-    -- Only set these properties if they exist in this Roblox version
-    pcall(function() 
-        ScreenGui.DisplayOrder = 999 -- Ensure it appears above other GUIs
-    end)
+    ScreenGui.Enabled = true -- Ensure it's always visible
+    ScreenGui.IgnoreGuiInset = true -- Important for full screen coverage
     
-    -- Try different parent methods to ensure GUI appears
-    local success = pcall(function()
-        ScreenGui.Parent = game:GetService("CoreGui")
-    end)
+    -- Try to apply any available protection bypass
+    local bypass = securityBypass()
+    local success = false
+    
+    -- Best approach for exploit GUI visibility - try multiple paths
+    local methods = {
+        function() -- Method 1: Direct CoreGui with protection
+            if syn and syn.protect_gui then 
+                syn.protect_gui(ScreenGui)
+                ScreenGui.Parent = game:GetService("CoreGui")
+                return true
+            end
+            return false
+        end,
+        
+        function() -- Method 2: Hidden UI access
+            local hiddenUI = (get_hidden_gui or gethui or cloneref and cloneref(game:GetService("CoreGui")))
+            if hiddenUI then
+                ScreenGui.Parent = hiddenUI
+                return true
+            end
+            return false
+        end,
+        
+        function() -- Method 3: Standard CoreGui
+            ScreenGui.Parent = game:GetService("CoreGui")
+            return ScreenGui.Parent == game:GetService("CoreGui")
+        end,
+        
+        function() -- Method 4: PlayerGui fallback
+            ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+            return ScreenGui.Parent == game.Players.LocalPlayer.PlayerGui
+        end,
+        
+        function() -- Method 5: Last resort - parent to something visible
+            for _, v in pairs({game:GetService("Players").LocalPlayer.PlayerGui, game:GetService("CoreGui")}) do
+                if v then
+                    ScreenGui.Parent = v
+                    return true
+                end
+            end
+            return false
+        end
+    }
+    
+    -- Try each method until one works
+    for i, method in ipairs(methods) do
+        success = pcall(function() return method() end)
+        if success then
+            print("GUI parented successfully with method " .. i)
+            break
+        end
+    end
     
     if not success then
-        ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+        print("WARNING: Failed to parent GUI to any location! GUI may not be visible.")
+        -- Try one more time with PlayerGui
+        pcall(function()
+            ScreenGui.Parent = game.Players.LocalPlayer.PlayerGui
+        end)
     end
+    
+    -- Store the ScreenGui reference globally so we can access it later
+    MainGui = ScreenGui
+    
+    -- Emergency notification
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "GUI Ready", 
+            Text = "Press " .. Settings.ToggleGuiKey .. " if GUI is not visible",
+            Duration = 10
+        })
+    end)
     
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
@@ -1635,10 +1735,31 @@ local function Initialize()
     -- Create FOV Circle
     UpdateFovCircle()
     
-    -- Create GUI and ensure it's visible
+    -- Show a notification that the script is loading
+    pcall(function()
+        local StarterGui = game:GetService("StarterGui")
+        StarterGui:SetCore("SendNotification", {
+            Title = "Script Loading",
+            Text = "Aimbot & ESP loading...",
+            Duration = 3
+        })
+    end)
+    
+    -- Create GUI with guaranteed visibility
     local gui = CreateGui()
     gui.Enabled = true -- Force GUI to be visible
     GuiVisible = true
+    
+    -- Send a message to chat about the toggle key
+    pcall(function()
+        local StarterGui = game:GetService("StarterGui")
+        StarterGui:SetCore("ChatMakeSystemMessage", {
+            Text = "[Script] GUI loaded! Press " .. Settings.ToggleGuiKey .. " to toggle GUI visibility",
+            Color = Color3.fromRGB(0, 255, 0),
+            Font = Enum.Font.SourceSansBold,
+            TextSize = 18
+        })
+    end)
     
     -- Create Player ESP Objects
     for _, player in pairs(Players:GetPlayers()) do
