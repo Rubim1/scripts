@@ -1,7 +1,8 @@
+local __raw_loadstring = loadstring
 local loadstring = function(...)
-	local res, err = loadstring(...)
-	if err and vape then vape:CreateNotification('Vape', 'Failed to load : '..err, 30, 'alert') end
-	return res
+	local ok, res = pcall(function() return __raw_loadstring(...) end)
+	if not ok and vape then vape:CreateNotification('Vape', 'Failed to load : '..tostring(res), 30, 'alert') end
+	return ok and res or nil
 end
 local isfile = isfile or function(file)
 	local suc, res = pcall(function() return readfile(file) end)
@@ -46,8 +47,8 @@ local LazerGodmode = {Enabled = false}
 
 local function getVehicle(ent)
 	if ent.Player then
-		for _, car in collectionService:GetTagged('Vehicle') do
-			for _, seat in car:GetChildren() do
+		for _, car in pairs(collectionService:GetTagged('Vehicle')) do
+			for _, seat in pairs(car:GetChildren()) do
 				if (seat.Name == 'Seat' or seat.Name == 'Passenger') then
 					seat = seat:FindFirstChild('PlayerName')
 					if seat and seat.Value == ent.Player.Name then
@@ -59,8 +60,9 @@ local function getVehicle(ent)
 	end
 end
 
+
 local function isArrested(name)
-	for i, v in jb.CircleAction.Specs do
+	for i, v in pairs(jb.CircleAction.Specs) do
 		if v.Name == 'Arrest' and v.PlayerName == name then
 			return not v.ShouldArrest
 		end
@@ -84,7 +86,7 @@ local function isIllegal(ent)
 		local items = ent.Player:FindFirstChild('CurrentInventory')
 		items = items and items.Value
 		if items then
-			for i, v in items:GetChildren() do
+			for i, v in pairs(items:GetChildren()) do
 				if v.Name ~= 'MansionInvite' then
 					return true
 				end
@@ -148,12 +150,12 @@ run(function()
 	local function dumpRemotes(scripts, renamed)
 		local returned = {}
 
-		for _, scr in scripts do
+		for _, scr in pairs(scripts) do
 			local deserializedcode = vm.luau_deserialize(getscriptbytecode(scr))
 
-			for _, proto in deserializedcode.protoList do
+			for _, proto in pairs(deserializedcode.protoList) do
 				local stack, top, code = {}, -1, proto.code
-				for i, inst in code do
+				for i, inst in ipairs(code) do
 					if inst.opcode == 4 then -- LOADN
 						stack[inst.A] = inst.D
 					elseif inst.opcode == 5 then -- LOADK
@@ -176,7 +178,7 @@ run(function()
 
 						local callInst = code[i + 2]
 						local callA, callB, callC = callInst.A, callInst.B, callInst.C
-						local params = if callB == 0 then top - callA else callB - 1
+						local params = (callB == 0) and (top - callA) or (callB - 1)
 						if kv == 'sub' or kv == 'reverse' then
 							local arg1, arg2, arg3 = table.unpack(stack, callA + 1, callA + params)
 							if kv == 'reverse' and not arg1 then arg1 = 'a' end
@@ -191,21 +193,24 @@ run(function()
 
 							table.move(ret_list, 1, ret_num, callA, stack)
 						elseif kv == 'FireServer' then
-							local name, val = proto.debugname == '(??)' and scr.Name or proto.debugname, stack[callA + 2]
-							if name == val then table.insert(returned, val) continue end
-							if returned[name] then
-								for i = 1, 10 do
-									if not returned[name..i] then name ..= i break end
+							local name, val = (proto.debugname == '(??)' and scr.Name) or proto.debugname, stack[callA + 2]
+							if name == val then
+								table.insert(returned, val)
+							else
+								if returned[name] then
+									for i = 1, 10 do
+										if not returned[name .. i] then name = name .. i break end
+									end
 								end
+								returned[name] = val
 							end
-
-							returned[name] = val
 						end
 					elseif inst.opcode == 49 then -- CONCAT
 						local s = ""
 						for i = inst.B, inst.C do
-							if type(stack[i]) ~= 'string' then continue end
-							s ..= stack[i]
+							if type(stack[i]) == 'string' then
+								s = s .. stack[i]
+							end
 						end
 						stack[inst.A] = s
 					end
@@ -213,7 +218,7 @@ run(function()
 			end
 		end
 
-		for i, v in table.clone(returned) do
+		for i, v in pairs(table.clone(returned)) do
 			if renamed[i] then
 				returned[i] = nil
 				returned[renamed[i]] = v
@@ -224,9 +229,9 @@ run(function()
 	end
 
 	local function getCash()
-		for i, v in debug.getupvalue(jb.TeamChooseController.Init, 2) do
+		for i, v in pairs(debug.getupvalue(jb.TeamChooseController.Init, 2)) do
 			if type(v) == 'function' then
-				for _, const in debug.getconstants(v) do
+				for _, const in ipairs(debug.getconstants(v)) do
 					if tostring(const):find('PlusCash') then
 						return v, i
 					end
@@ -294,7 +299,7 @@ run(function()
 
 	local function fireHook(self, id, ...)
 		local rem
-		for i, v in remotes do
+		for i, v in pairs(remotes) do
 			if v == id then
 				rem = i
 			end
@@ -330,7 +335,7 @@ run(function()
 		local text, tab = '', workspace.MostWanted:FindFirstChild('Board', true)
 		tab = tab and tab:GetChildren() or {}
 
-		for i, v in tab do
+		for i, v in pairs(tab) do
 			if v:IsA('Frame') then
 				local plrname = v:FindFirstChild('PlayerName', true)
 				local bounty = v:FindFirstChild('Bounty', true)
@@ -364,7 +369,7 @@ run(function()
 	end)
 end)
 
-for _, v in {'Reach', 'TriggerBot', 'Disabler', 'AntiFall', 'HitBoxes', 'Killaura', 'MurderMystery'} do
+for _, v in ipairs({'Reach', 'TriggerBot', 'Disabler', 'AntiFall', 'HitBoxes', 'Killaura', 'MurderMystery'}) do
 	vape:Remove(v)
 end
 run(function()
@@ -568,7 +573,7 @@ run(function()
 							Range = 50
 						})
 	
-						for _, ent in plrs do
+						for _, ent in pairs(plrs) do
 							if not AutoArrest.Enabled then break end
 							if ent.Player and isIllegal(ent) then
 								local vehicle = ent.Humanoid.Sit and getVehicle(ent) or nil
@@ -598,11 +603,11 @@ run(function()
 	local function getEntitiesInVehicle(car)
 		local entities = {}
 	
-		for _, seat in car:GetChildren() do
+		for _, seat in pairs(car:GetChildren()) do
 			if (seat.Name == 'Seat' or seat.Name == 'Passenger') then
 				seat = seat:FindFirstChild('PlayerName')
 				if seat then
-					for _, ent in entitylib.List do
+					for _, ent in pairs(entitylib.List) do
 						if ent.Player and ent.Player.Name == seat.Value then
 							table.insert(entities, ent)
 						end
@@ -619,12 +624,12 @@ run(function()
 	
 		if entitylib.isAlive then
 			local localPosition = entitylib.character.HumanoidRootPart.Position
-			for _, car in collectionService:GetTagged('Vehicle') do
+			for _, car in pairs(collectionService:GetTagged('Vehicle')) do
 				if car.PrimaryPart and (car.PrimaryPart.Position - localPosition).Magnitude <= Range.Value then
 					local entities = getEntitiesInVehicle(car)
 					local check = #entities > 0
 					if TeamCheck.Enabled then
-						for _, ent in entities do
+						for _, ent in pairs(entities) do
 							if not ent.Targetable then 
 								check = false 
 								break 
@@ -650,7 +655,7 @@ run(function()
 					repeat
 						local item = jb.ItemSystemController:GetLocalEquipped()
 						if (not HandCheck.Enabled) or item and item.BulletEmitter then
-							for _, car in getVehiclesNear() do
+							for _, car in pairs(getVehiclesNear()) do
 								if not AutoPop.Enabled then break end
 								jb:FireServer('PopTires', car, 'Sniper')
 								task.wait(0.1)
