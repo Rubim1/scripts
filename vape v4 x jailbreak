@@ -8,14 +8,44 @@ local isfile = isfile or function(file)
 	local suc, res = pcall(function() return readfile(file) end)
 	return suc and res ~= nil and res ~= ''
 end
-local function downloadFile(path, func)
-	if not isfile(path) then
-		local suc, res = pcall(function() return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true) end)
-		if not suc or res == '404: Not Found' then error(res) end
-		if path:find('.lua') then res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res end
-		writefile(path, res)
+local function safeReadfile(p)
+	if type(readfile) == 'function' then
+		local ok, res = pcall(function() return readfile(p) end)
+		if ok then return res end
 	end
-	return (func or readfile)(path)
+	return nil
+end
+
+local function safeWritefile(p, content)
+	if type(writefile) == 'function' then
+		pcall(function() writefile(p, content) end)
+		return true
+	end
+	return false
+end
+
+local function downloadFile(path, func)
+	-- If file already exists locally (exploit's filesystem), return it
+	if isfile(path) then
+		return (func or readfile)(path)
+	end
+
+	-- Determine commit id safely (do not call readfile directly unguarded)
+	local commit = 'master'
+	local commit_contents = safeReadfile('newvape/profiles/commit.txt')
+	if type(commit_contents) == 'string' and commit_contents ~= '' then
+		commit = commit_contents
+	end
+
+	local url = ('https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/%s/%s'):format(commit, select(1, path:gsub('newvape/', '')))
+	local suc, res = pcall(function() return game:HttpGet(url, true) end)
+	if not suc or not res or res == '404: Not Found' then error(res or 'failed to download '..url) end
+	if path:find('%.lua$') then
+		res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+	end
+	-- Try to write to exploit file system if available
+	safeWritefile(path, res)
+	return (func or function(p) return res end)(path)
 end
 local run = function(func) func() end
 local cloneref = cloneref or function(obj) return obj end
@@ -799,13 +829,28 @@ end)
 -- == AWALAN DARI SCRIPT CODECOAT (DITAMBAHKAN) ==
 -- =======================================================
 
--- == Konfigurasi Cheat dari Codecoat ==
-local configs = {
-    player = { walktog = false; walkval = 0; infjump = false; respawndeathloc = false; nofall = false; norag = false; noislow = false; nosky = false; nostun = false; norwait = false; nocslow = false; nocircwait = false; nopwait = false; nocwait = false; bypasskd = false; doornoreq = false; alwayssilentp = false; alwaysp = false; alwayssp = false; juiced = false; crawlequip = false; backbone = false; },
-    vehicle = { fspeed = 10; ftog = false; fx = 0; fy = 0; fz = 0; engine = false; enginesp = 0; brake = false; brakesp = 0; suspension = false; suspensionhe = 0; turnsp = 0; turn = false; inftrac= false; reducebounce = false; tirepop = false; alwayshij = false; infnitro = false; rinfnitro = false; autoflip = false; helibreak = false; helienginesp = 0; heliverticalsp = 0; heliturnsp = 0; heliengine = false; helipick = false; heliheight = false; instanttow = false; driveonwater = false; tanksus = false; tanksushe = 5.3; tankengine = false; tankenginesp = 0; voltenginesp = 0; },
-    combat = { hitboxradius = 3; noequipt = false; nospread = false; norecoil = false; nobulletg = false; alwaysauto = false; alwaysheadshot = false; pistolswat = false; snipernoblur = false; snipernogui = false; wallbang = false; nogrenadesmoke = false; nogrenadesmokelimit = false; tasermodz = false; instantrocketseek = false; forcefieldnomiss = false; increasetakedowndamage = false; increaseforcedamage = false; forcefieldreload = false; shootthroughforce =false; instantc4throw = false; antic4limit = false; instantbullethit = false; getweapon = false; silentaim = { enabled = false; includetaser = false; includeplasma = false; radius = 50; wallcheck = false; }; arrestaura = { enabled = false; showtargeted = false; }; batonsword = { noreloadtime = false; spamlunge = false; spamswoosh = false; }; },
-    others = { disablehometurret = false; disablemilitaryturret = false; guardnodmg = false; opendoor = false; prisonelevator = false; nooilblow = false; disablelaser = false; opensewer = false; },
-}
+-- Load shared workspace config module so all scripts use the same config
+-- Prefer `newvape/workspace_config.lua` (Luau/exploit file layout). Fallback to repo module.
+local configs = nil
+do
+	local suc, content = pcall(function() return readfile('newvape/workspace_config.lua') end)
+	if suc and content and type(content) == 'string' then
+		local f, err = loadstring(content)
+		if f then
+			local ok, res = pcall(f)
+			if ok and type(res) == 'table' then
+				configs = res
+			end
+		end
+	end
+end
+if not configs then
+	local ok, mod = pcall(function()
+		return require(script.Parent:FindFirstChild("workspace_config"))
+	end)
+	if ok and type(mod) == 'table' then configs = mod end
+end
+configs = configs or {}
 
 -- == Tambahkan 'require' dari Codecoat ke tabel 'jb' Vape ==
 -- Ini memungkinkan kita menggunakan fungsi-fungsi game yang dibutuhkan
