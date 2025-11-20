@@ -1,7 +1,12 @@
-local __raw_loadstring = loadstring
+local __raw_loadstring = loadstring or load
 local loadstring = function(...)
+	if type(__raw_loadstring) ~= 'function' then
+		return nil
+	end
 	local ok, res = pcall(function() return __raw_loadstring(...) end)
-	if not ok and vape then vape:CreateNotification('Vape', 'Failed to load : '..tostring(res), 30, 'alert') end
+	if not ok and shared and shared.vape then
+		pcall(function() shared.vape:CreateNotification('Vape', 'Failed to load : '..tostring(res), 30, 'alert') end)
+	end
 	return ok and res or nil
 end
 local isfile = isfile or function(file)
@@ -69,7 +74,30 @@ local whitelist = vape.Libraries.whitelist
 local prediction = vape.Libraries.prediction
 local targetinfo = vape.Libraries.targetinfo
 local sessioninfo = vape.Libraries.sessioninfo
-local vm = loadstring(downloadFile('newvape/libraries/vm.lua'), 'vm')()
+local vm = nil
+do
+	local code = nil
+	pcall(function() code = downloadFile('newvape/libraries/vm.lua') end)
+	if type(code) == 'string' then
+		local f = nil
+		if type(__raw_loadstring) == 'function' then
+			local ok, res = pcall(function() return __raw_loadstring(code, 'vm') end)
+			if ok then f = res end
+		elseif type(load) == 'function' then
+			local ok, res = pcall(function() return load(code) end)
+			if ok then f = res end
+		end
+		if type(f) == 'function' then
+			local ok, res = pcall(f)
+			if ok and type(res) == 'table' then
+				vm = res
+			end
+		end
+	end
+	if not vm then
+		vm = { luau_deserialize = function() return { protoList = {} } end }
+	end
+end
 
 local jb = {}
 local InfNitro = {Enabled = false}
