@@ -1,0 +1,1326 @@
+local loadstring = function(...)
+	local res, err = loadstring(...)
+	if err and vape then vape:CreateNotification('Vape', 'Failed to load : '..err, 30, 'alert') end
+	return res
+end
+local isfile = isfile or function(file)
+	local suc, res = pcall(function() return readfile(file) end)
+	return suc and res ~= nil and res ~= ''
+end
+local function downloadFile(path, func)
+	if not isfile(path) then
+		local suc, res = pcall(function() return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true) end)
+		if not suc or res == '404: Not Found' then error(res) end
+		if path:find('.lua') then res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res end
+		writefile(path, res)
+	end
+	return (func or readfile)(path)
+end
+local run = function(func) func() end
+local cloneref = cloneref or function(obj) return obj end
+
+local playersService = cloneref(game:GetService('Players'))
+local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
+local runService = cloneref(game:GetService('RunService'))
+local inputService = cloneref(game:GetService('UserInputService'))
+local textService = cloneref(game:GetService('TextService'))
+local tweenService = cloneref(game:GetService('TweenService'))
+local teamsService = cloneref(game:GetService('Teams'))
+local collectionService = cloneref(game:GetService('CollectionService'))
+local contextService = cloneref(game:GetService('ContextActionService'))
+
+local gameCamera = workspace.CurrentCamera
+local lplr = playersService.LocalPlayer
+
+local vape = shared.vape
+local entitylib = vape.Libraries.entity
+local whitelist = vape.Libraries.whitelist
+local prediction = vape.Libraries.prediction
+local targetinfo = vape.Libraries.targetinfo
+local sessioninfo = vape.Libraries.sessioninfo
+local vm = loadstring(downloadFile('newvape/libraries/vm.lua'), 'vm')()
+
+local jb = {}
+local InfNitro = {Enabled = false}
+local LazerGodmode = {Enabled = false}
+
+local function getVehicle(ent)
+	if ent.Player then
+		for _, car in collectionService:GetTagged('Vehicle') do
+			for _, seat in car:GetChildren() do
+				if (seat.Name == 'Seat' or seat.Name == 'Passenger') then
+					seat = seat:FindFirstChild('PlayerName')
+					if seat and seat.Value == ent.Player.Name then
+						return car
+					end
+				end
+			end
+		end
+	end
+end
+
+local function isArrested(name)
+	for i, v in jb.CircleAction.Specs do
+		if v.Name == 'Arrest' and v.PlayerName == name then
+			return not v.ShouldArrest
+		end
+	end
+	return false
+end
+
+local function isFriend(plr, recolor)
+	if vape.Categories.Friends.Options['Use friends'].Enabled then
+		local friend = table.find(vape.Categories.Friends.ListEnabled, plr.Name) and true
+		if recolor then
+			friend = friend and vape.Categories.Friends.Options['Recolor visuals'].Enabled
+		end
+		return friend
+	end
+	return nil
+end
+
+local function isIllegal(ent)
+	if ent.Player and ent.Player.Team == teamsService.Prisoner then
+		local items = ent.Player:FindFirstChild('CurrentInventory')
+		items = items and items.Value
+		if items then
+			for i, v in items:GetChildren() do
+				if v.Name ~= 'MansionInvite' then
+					return true
+				end
+			end
+		end
+
+		return ent.Illegal
+	end
+	return true
+end
+
+local function isTarget(plr)
+	return table.find(vape.Categories.Targets.ListEnabled, plr.Name) and true
+end
+
+local function notif(...)
+	return vape:CreateNotification(...)
+end
+
+run(function()
+	entitylib.getUpdateConnections = function(ent)
+		local hum = ent.Humanoid
+		return {
+			hum:GetPropertyChangedSignal('Health'),
+			hum:GetPropertyChangedSignal('MaxHealth'),
+			{
+				Connect = function()
+					ent.Friend = ent.Player and isFriend(ent.Player) or nil
+					ent.Target = ent.Player and isTarget(ent.Player) or nil
+					return {Disconnect = function() end}
+				end
+			},
+			{
+				Connect = function()
+					return hum:GetPropertyChangedSignal('Sit'):Connect(function()
+						if getVehicle(ent) then
+							ent.Illegal = true
+						end
+					end)
+				end
+			}
+		}
+	end
+
+	entitylib.targetCheck = function(ent)
+		if ent.TeamCheck then return ent:TeamCheck() end
+		if ent.NPC then return true end
+		if isFriend(ent.Player) then return false end
+		if not select(2, whitelist:get(ent.Player)) then return false end
+		if lplr.Team == teamsService.Police then
+			return ent.Player.Team ~= teamsService.Police
+		else
+			return ent.Player.Team == teamsService.Police
+		end
+		return true
+	end
+end)
+entitylib.start()
+
+run(function()
+	local function dumpRemotes(scripts, renamed)
+		local returned = {}
+
+		for _, scr in scripts do
+			local deserializedcode = vm.luau_deserialize(getscriptbytecode(scr))
+
+			for _, proto in deserializedcode.protoList do
+				local stack, top, code = {}, -1, proto.code
+				for i, inst in code do
+					if inst.opcode == 4 then -- LOADN
+						stack[inst.A] = inst.D
+					elseif inst.opcode == 5 then -- LOADK
+						stack[inst.A] = inst.K
+					elseif inst.opcode == 6 then -- MOVE
+						stack[inst.A] = stack[inst.B]
+					elseif inst.opcode == 12 then -- GETIMPORT
+						local count, import = inst.KC, getrenv()[inst.K0]
+
+						if count == 1 then
+							stack[inst.A] = import
+						elseif count == 2 then
+							stack[inst.A] = import[inst.K1]
+						elseif count == 3 then
+							stack[inst.A] = import[inst.K1][inst.K2]
+						end
+					elseif inst.opcode == 20 then -- NAMECALL
+						local A, B, kv = inst.A, inst.B, inst.K
+						stack[A + 1] = stack[B]
+
+						local callInst = code[i + 2]
+						local callA, callB, callC = callInst.A, callInst.B, callInst.C
+						local params = if callB == 0 then top - callA else callB - 1
+						if kv == 'sub' or kv == 'reverse' then
+							local arg1, arg2, arg3 = table.unpack(stack, callA + 1, callA + params)
+							if kv == 'reverse' and not arg1 then arg1 = 'a' end
+
+							local ret_list = table.pack(string[kv](arg1, arg2, arg3))
+							local ret_num = ret_list.n - 1
+							if callC == 0 then
+								top = callA + ret_num - 1
+							else
+								ret_num = callC - 1
+							end
+
+							table.move(ret_list, 1, ret_num, callA, stack)
+						elseif kv == 'FireServer' then
+							local name, val = proto.debugname == '(??)' and scr.Name or proto.debugname, stack[callA + 2]
+							if name == val then table.insert(returned, val) continue end
+							if returned[name] then
+								for i = 1, 10 do
+									if not returned[name..i] then name ..= i break end
+								end
+							end
+
+							returned[name] = val
+						end
+					elseif inst.opcode == 49 then -- CONCAT
+						local s = ""
+						for i = inst.B, inst.C do
+							if type(stack[i]) ~= 'string' then continue end
+							s ..= stack[i]
+						end
+						stack[inst.A] = s
+					end
+				end
+			end
+		end
+
+		for i, v in table.clone(returned) do
+			if renamed[i] then
+				returned[i] = nil
+				returned[renamed[i]] = v
+			end
+		end
+
+		return returned
+	end
+
+	local function getCash()
+		for i, v in debug.getupvalue(jb.TeamChooseController.Init, 2) do
+			if type(v) == 'function' then
+				for _, const in debug.getconstants(v) do
+					if tostring(const):find('PlusCash') then
+						return v, i
+					end
+				end
+			end
+		end
+	end
+
+	local function toMoney(num)
+		local one, two, three = string.match(tostring(num), '^([^%d]*%d)(%d*)(.-)$')
+		return one .. (two:reverse():gsub('(%d%d%d)', '%1,'):reverse() .. three)..'$'
+	end
+
+	jb = {
+		BulletEmitter = require(replicatedStorage.Game.ItemSystem.BulletEmitter),
+		CircleAction = require(replicatedStorage.Module.UI).CircleAction,
+		CargoController = require(replicatedStorage.Game.Robbery.RobberyPassengerTrain),
+		FallingController = require(replicatedStorage.Game.Falling),
+		GunController = require(replicatedStorage.Game.Item.Gun),
+		HotbarItemSystem = require(replicatedStorage.Hotbar.HotbarItemSystem),
+		InventoryItemSystem = require(replicatedStorage.Inventory.InventoryItemSystem),
+		ItemSystemController = require(replicatedStorage.Game.ItemSystem.ItemSystem),
+		PlayerUtils = require(replicatedStorage.Game.PlayerUtils),
+		RagdollController = require(replicatedStorage.Module.AlexRagdoll),
+		TaserController = require(replicatedStorage.Game.Item.Taser),
+		TeamChooseController = require(replicatedStorage.TeamSelect.TeamChooseUI),
+		VehicleController = require(replicatedStorage.Vehicle.VehicleUtils)
+	}
+
+	if not jb.VehicleController.toggleLocalLocked or not jb.VehicleController.NitroShopVisible then
+		repeat task.wait() until (jb.VehicleController.toggleLocalLocked and jb.VehicleController.NitroShopVisible) or vape.Loaded == nil
+		if vape.Loaded == nil then return end
+	end
+	local remotetable = debug.getupvalue(jb.VehicleController.toggleLocalLocked, 2)
+	local fireserver, hook = remotetable.FireServer
+
+	remotes = dumpRemotes({
+		replicatedStorage.Game.TrainSystem.LocomotiveFront,
+		replicatedStorage.Game.ItemSystem.ItemSystem,
+		replicatedStorage.Game.CashBuyUI,
+		replicatedStorage.Game.Item.Taser,
+		replicatedStorage.Game.Item.Gun,
+		replicatedStorage.Game.Falling,
+		lplr.PlayerScripts.LocalScript
+	}, {
+		Action = 'Pickup',
+		Action3 = 'StartRob',
+		Action2 = 'EndRob',
+		AttemptArrest = 'Arrest',
+		attemptPunch = 'Punch',
+		AttemptVehicleEject = 'Eject',
+		AttemptVehicleEnter = 'GetIn',
+		BroadcastInputBegan = 'InputBegan',
+		BroadcastInputEnded = 'InputEnded',
+		CalculateDelta = 'UseNitro',
+		Draw = 'TaseReplicate',
+		Gun = 'PopTires',
+		LocalScript2 = 'LookAngle',
+		LocalScript = 'SelfDamage',
+		onPressed = 'FlipVehicle',
+		OnJump = 'GetOut',
+		OnJump1 = 'GetOut',
+		UpdateMousePosition = 'AimPosition'
+	})
+
+	local function fireHook(self, id, ...)
+		local rem
+		for i, v in remotes do
+			if v == id then
+				rem = i
+			end
+		end
+
+		if InfNitro.Enabled and rem == 'UseNitro' then return end
+		if LazerGodmode.Enabled and rem == 'SelfDamage' then return end
+		if rem ~= 'LookAngle' and rem ~= 'AimPosition' then
+			local called = getfenv(3)
+			called = called and called.script
+			if called and (not rem) then print(id, 'called with', called:GetFullName()) end
+			print(id, rem or id, ...)
+		end
+
+		return hook(self, id, ...)
+	end
+
+	hook = hookfunction(fireserver, function(self, id, ...)
+		return fireHook(self, id, ...)
+	end)
+
+	function jb:FireServer(id, ...)
+		if not remotes[id] then
+			notif('Vape', 'Failed to find remote ('..id..')', 10, 'alert')
+			return
+		end
+		return hook(remotetable, remotes[id], ...)
+	end
+
+	local arrests = sessioninfo:AddItem('Arrested')
+	local moneymade = sessioninfo:AddItem('Money Made', 0, toMoney, true)
+	local bounty = sessioninfo:AddItem('Bounty List', '', function()
+		local text, tab = '', workspace.MostWanted:FindFirstChild('Board', true)
+		tab = tab and tab:GetChildren() or {}
+
+		for i, v in tab do
+			if v:IsA('Frame') then
+				local plrname = v:FindFirstChild('PlayerName', true)
+				local bounty = v:FindFirstChild('Bounty', true)
+				if plrname and bounty then
+					text = text..'\n'..(plrname.Text..': '..bounty.Text:gsub(' Bounty', ''))
+				end
+			end
+		end
+
+		return text
+	end, false)
+
+	local cashfunc, cashhook = getCash()
+	if cashfunc then
+		cashhook = hookfunction(cashfunc, function(amount, text, ...)
+			moneymade:Increment(amount)
+			if text == 'Arrest' then
+				arrests:Increment()
+			end
+			return cashhook(amount, text, ...)
+		end)
+	end
+
+	vape:Clean(function()
+		table.clear(remotes)
+		table.clear(jb)
+		hookfunction(fireserver, hook)
+		hookfunction(cashfunc, cashhook)
+		--restorefunction(fireserver)
+		--restorefunction(cashfunc)
+	end)
+end)
+
+for _, v in {'Reach', 'TriggerBot', 'Disabler', 'AntiFall', 'HitBoxes', 'Killaura', 'MurderMystery'} do
+	vape:Remove(v)
+end
+run(function()
+	local SilentAim
+	local Target
+	local Mode
+	local Range
+	local HitChance
+	local HeadshotChance
+	local CircleColor
+	local CircleTransparency
+	local CircleFilled
+	local CircleObject
+	local Instant
+	local Hooked
+	local ProjectileRaycast = RaycastParams.new()
+	ProjectileRaycast.RespectCanCollide = true
+	
+	SilentAim = vape.Categories.Combat:CreateModule({
+		Name = 'SilentAim',
+		Function = function(callback)
+			if CircleObject then
+				CircleObject.Visible = callback and Mode.Value == 'Mouse'
+			end
+			if callback then
+				Hooked = jb.GunController.TransformLocalMousePosition
+				jb.GunController.TransformLocalMousePosition = function(self, pos)
+					local ent = entitylib['Entity'..Mode.Value]({
+						Range = Range.Value,
+						Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
+						Part = 'RootPart',
+						Origin = entitylib.isAlive and entitylib.character.RootPart.Position or nil,
+						Players = Target.Players.Enabled,
+						NPCs = Target.NPCs.Enabled
+					})
+	
+					if ent then
+						local item = jb.ItemSystemController:GetLocalEquipped()
+						if item and ((self.Tip.CFrame.Position - ent.RootPart.Position).Magnitude / (item.Config.BulletSpeed or 1000)) < item.BulletEmitter.LifeSpan then
+							ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
+							ProjectileRaycast.CollisionGroup = ent.RootPart.CollisionGroup
+							local calc = prediction.SolveTrajectory(self.Tip.CFrame.Position, item.Config.BulletSpeed or 1000, math.abs(item.BulletEmitter.GravityVector.Y), ent.RootPart.Position, Instant.Enabled and Vector3.zero or ent.RootPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
+							if calc then
+								targetinfo.Targets[ent] = tick() + 1
+								return calc
+							end
+						end
+					end
+	
+					return pos
+				end
+	
+				repeat
+					if CircleObject then 
+						CircleObject.Position = inputService:GetMouseLocation() 
+					end
+	
+					if Instant.Enabled then 
+						local item = jb.ItemSystemController:GetLocalEquipped()
+						if item and item.BulletEmitter then
+							rawset(item.BulletEmitter, 'LastUpdate', tick() - (item.BulletEmitter.LifeSpan - 0.1))
+						end
+					end
+					task.wait()
+				until not SilentAim.Enabled
+			else
+				jb.GunController.TransformLocalMousePosition = Hooked
+			end
+		end,
+		Tooltip = 'Silently adjusts your aim towards the enemy'
+	})
+	Target = SilentAim:CreateTargets({Players = true})
+	Mode = SilentAim:CreateDropdown({
+		Name = 'Mode',
+		List = {'Mouse', 'Position'},
+		Function = function(val)
+			if CircleObject then
+				CircleObject.Visible = SilentAim.Enabled and val == 'Mouse'
+			end
+		end,
+		Tooltip = 'Mouse - Checks for entities near the mouses position\nPosition - Checks for entities near the local character'
+	})
+	Range = SilentAim:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 1000,
+		Default = 150,
+		Function = function(val)
+			if CircleObject then
+				CircleObject.Radius = val
+			end
+		end,
+		Suffix = function(val) 
+			return val == 1 and 'stud' or 'studs' 
+		end
+	})
+	SilentAim:CreateToggle({
+		Name = 'Range Circle',
+		Function = function(callback)
+			if callback then
+				CircleObject = Drawing.new('Circle')
+				CircleObject.Filled = CircleFilled.Enabled
+				CircleObject.Color = Color3.fromHSV(CircleColor.Hue, CircleColor.Sat, CircleColor.Value)
+				CircleObject.Position = vape.gui.AbsoluteSize / 2
+				CircleObject.Radius = Range.Value
+				CircleObject.NumSides = 100
+				CircleObject.Transparency = 1 - CircleTransparency.Value
+				CircleObject.Visible = SilentAim.Enabled and Mode.Value == 'Mouse'
+			else
+				pcall(function()
+					CircleObject.Visible = false
+					CircleObject:Remove()
+				end)
+			end
+			CircleColor.Object.Visible = callback
+			CircleTransparency.Object.Visible = callback
+			CircleFilled.Object.Visible = callback
+		end
+	})
+	CircleColor = SilentAim:CreateColorSlider({
+		Name = 'Circle Color', 
+		Function = function(hue, sat, val)
+			if CircleObject then
+				CircleObject.Color = Color3.fromHSV(hue, sat, val)
+			end
+		end, 
+		Darker = true, 
+		Visible = false
+	})
+	CircleTransparency = SilentAim:CreateSlider({
+		Name = 'Transparency',
+		Min = 0,
+		Max = 1,
+		Decimal = 10,
+		Default = 0.5,
+		Function = function(val)
+			if CircleObject then
+				CircleObject.Transparency = 1 - val
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	CircleFilled = SilentAim:CreateToggle({
+		Name = 'Circle Filled', 
+		Function = function(callback)
+			if CircleObject then
+				CircleObject.Filled = callback
+			end
+		end, 
+		Darker = true, 
+		Visible = false
+	})
+	Instant = SilentAim:CreateToggle({Name = 'Hitscan Bullets'})
+end)
+	
+run(function()
+	local Wallbang = {Enabled = false}
+	
+	Wallbang = vape.Categories.Combat:CreateModule({
+		Name = 'Wallbang',
+		Function = function(callback)
+			if callback then
+				local hook
+				hook = hookfunction(jb.GunController.BulletEmitterOnLocalHitPlayer, function(...)
+					local shotData = select(15, ...)
+					shotData.isWallbang = nil
+					shotData.isHeadshot = true
+					return hook(...)
+				end)
+	
+				repeat
+					local item = jb.ItemSystemController:GetLocalEquipped()
+					if item and item.BulletEmitter then
+						item.BulletEmitter.IgnoreList = {workspace}
+					end
+					task.wait(0.1)
+				until not Wallbang.Enabled
+			else
+				restorefunction(jb.GunController.BulletEmitterOnLocalHitPlayer)
+			end
+		end,
+		Tooltip = 'Modifies bullets to always do headshot damage & shooting through most walls.'
+	})
+end)
+	
+run(function()
+	local AutoArrest = {Enabled = false}
+	
+	AutoArrest = vape.Categories.Blatant:CreateModule({
+		Name = 'AutoArrest',
+		Function = function(callback)
+			if callback then
+				repeat
+					local item = jb.ItemSystemController:GetLocalEquipped()
+					if item and item.__ClassName == 'Handcuffs' then
+						local localPosition = entitylib.character.Humanoid.HumanoidUnloadServerPosition.Value
+						local plrs = entitylib.AllPosition({
+							Players = true,
+							Part = 'RootPart',
+							Range = 50
+						})
+	
+						for _, ent in plrs do
+							if not AutoArrest.Enabled then break end
+							if ent.Player and isIllegal(ent) then
+								local vehicle = ent.Humanoid.Sit and getVehicle(ent) or nil
+								if vehicle then
+									jb:FireServer('Eject', vehicle)
+								elseif not isArrested(ent.Player.Name) and (localPosition - ent.RootPart.Position).Magnitude < 18.4 then
+									jb:FireServer('Arrest', ent.Player.Name)
+									task.wait(0.6)
+								end
+							end
+						end
+					end
+					task.wait(0.016)
+				until not AutoArrest.Enabled
+			end
+		end,
+		Tooltip = 'Automatically uses handcuffs on nearby entities'
+	})
+end)
+	
+run(function()
+	local AutoPop
+	local Range
+	local HandCheck
+	local TeamCheck
+	
+	local function getEntitiesInVehicle(car)
+		local entities = {}
+	
+		for _, seat in car:GetChildren() do
+			if (seat.Name == 'Seat' or seat.Name == 'Passenger') then
+				seat = seat:FindFirstChild('PlayerName')
+				if seat then
+					for _, ent in entitylib.List do
+						if ent.Player and ent.Player.Name == seat.Value then
+							table.insert(entities, ent)
+						end
+					end
+				end
+			end
+		end
+	
+		return entities
+	end
+	
+	local function getVehiclesNear()
+		local allowed = {}
+	
+		if entitylib.isAlive then
+			local localPosition = entitylib.character.HumanoidRootPart.Position
+			for _, car in collectionService:GetTagged('Vehicle') do
+				if car.PrimaryPart and (car.PrimaryPart.Position - localPosition).Magnitude <= Range.Value then
+					local entities = getEntitiesInVehicle(car)
+					local check = #entities > 0
+					if TeamCheck.Enabled then
+						for _, ent in entities do
+							if not ent.Targetable then 
+								check = false 
+								break 
+							end
+						end
+					end
+					
+					if check then 
+						table.insert(allowed, car) 
+					end
+				end
+			end
+		end
+	
+		return allowed
+	end
+	
+	AutoPop = vape.Categories.Blatant:CreateModule({
+		Name = 'AutoPop',
+		Function = function(callback)
+			if callback then
+				task.spawn(function()
+					repeat
+						local item = jb.ItemSystemController:GetLocalEquipped()
+						if (not HandCheck.Enabled) or item and item.BulletEmitter then
+							for _, car in getVehiclesNear() do
+								if not AutoPop.Enabled then break end
+								jb:FireServer('PopTires', car, 'Sniper')
+								task.wait(0.1)
+							end
+						end
+						task.wait(0.016)
+					until not AutoPop.Enabled
+				end)
+			end
+		end,
+		Tooltip = 'Automatically pops vehicles tires around you'
+	})
+	Range = AutoPop:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 600,
+		Default = 600
+	})
+	HandCheck = AutoPop:CreateToggle({Name = 'Hand Check'})
+	TeamCheck = AutoPop:CreateToggle({Name = 'Team Check'})
+end)
+	
+run(function()
+	local Punch = {Enabled = false}
+	
+	Punch = vape.Categories.Blatant:CreateModule({
+		Name = 'AutoPunch',
+		Function = function(callback)
+			if callback then
+				repeat
+					if entitylib.isAlive then 
+						jb:FireServer('Punch') 
+					end
+					task.wait(0.3)
+				until not Punch.Enabled
+			end
+		end,
+		Tooltip = 'Always punches people infront of you'
+	})
+end)
+	
+run(function()
+	local AutoTaze = {Enabled = false}
+	local AutoTazeHandCheck = {Enabled = false}
+	
+	AutoTaze = vape.Categories.Blatant:CreateModule({
+		Name = 'AutoTaze',
+		Function = function(callback)
+			if callback then
+				repeat
+					local item = jb.ItemSystemController:GetLocalEquipped()
+					item = item and item.__ClassName == 'Taser' or nil
+					if not AutoTazeHandCheck.Enabled or item then
+						local ent = entitylib.EntityPosition({
+							Players = true,
+							Part = 'RootPart',
+							Range = 50
+						})
+	
+						if ent and isIllegal(ent) and not isArrested(ent.Player.Name) then
+							if item then 
+								jb:FireServer('TaseReplicate', ent.Head.Position) 
+							end
+							jb:FireServer('Tase', ent.Humanoid, ent.Head, ent.Head.Position)
+							task.wait(10)
+						end
+					end
+					task.wait(0.016)
+				until not AutoTaze.Enabled
+			end
+		end,
+		Tooltip = 'Immobilizes entities around you'
+	})
+	AutoTazeHandCheck = AutoTaze:CreateToggle({Name = 'Hand Check'})
+end)
+	
+run(function()
+	LazerGodmode = vape.Categories.Blatant:CreateModule({Name = 'LazerGodmode'})
+end)
+	
+run(function()
+	vape.Categories.Blatant:CreateModule({
+		Name = 'NoFall',
+		Function = function(callback)
+			debug.setconstant(debug.getupvalue(jb.FallingController.Init, 19), 9, callback and 'Archivable' or 'Sit')
+		end,
+		Tooltip = 'Disables ragdoll handling & fall damage'
+	})
+end)
+	
+run(function()
+	local nitrotable = debug.getupvalue(jb.VehicleController.NitroShopVisible, 1)
+	local oldnitro
+	
+	InfNitro = vape.Categories.Utility:CreateModule({
+		Name = 'InfiniteNitro',
+		Function = function(callback)
+			if callback then
+				oldnitro = nitrotable.Nitro
+				jb.VehicleController.updateSpdBarRatio(1)
+				repeat
+					nitrotable.Nitro = 250
+					task.wait(0.1)
+				until not InfNitro.Enabled
+			else
+				nitrotable.Nitro = oldnitro
+				jb.VehicleController.updateSpdBarRatio(oldnitro / 250)
+			end
+		end,
+		Tooltip = 'Infinite boost for the local car'
+	})
+end)
+	
+run(function()
+	vape.Categories.Utility:CreateModule({
+		Name = 'InstantAction',
+		Function = function(callback)
+			debug.setconstant(jb.CircleAction.Press, 3, callback and 'Timeda' or 'Timed')
+		end,
+		Tooltip = 'Allows you to instantly complete ProximityPrompt actions'
+	})
+end)
+	
+run(function()
+	vape.Categories.Utility:CreateModule({
+		Name = 'KeySpoofer',
+		Function = function(callback)
+			if callback then
+				hookfunction(jb.PlayerUtils.hasKey, function() 
+					return true 
+				end)
+			else
+				restorefunction(jb.PlayerUtils.hasKey)
+			end
+		end,
+		Tooltip = 'Enables most doors to be walked through'
+	})
+end)
+
+-- =======================================================
+-- == AWALAN DARI SCRIPT CODECOAT (DITAMBAHKAN) ==
+-- =======================================================
+
+-- == Konfigurasi Cheat dari Codecoat ==
+local configs = {
+    player = { walktog = false; walkval = 0; infjump = false; respawndeathloc = false; nofall = false; norag = false; noislow = false; nosky = false; nostun = false; norwait = false; nocslow = false; nocircwait = false; nopwait = false; nocwait = false; bypasskd = false; doornoreq = false; alwayssilentp = false; alwaysp = false; alwayssp = false; juiced = false; crawlequip = false; backbone = false; },
+    vehicle = { fspeed = 10; ftog = false; fx = 0; fy = 0; fz = 0; engine = false; enginesp = 0; brake = false; brakesp = 0; suspension = false; suspensionhe = 0; turnsp = 0; turn = false; inftrac= false; reducebounce = false; tirepop = false; alwayshij = false; infnitro = false; rinfnitro = false; autoflip = false; helibreak = false; helienginesp = 0; heliverticalsp = 0; heliturnsp = 0; heliengine = false; helipick = false; heliheight = false; instanttow = false; driveonwater = false; tanksus = false; tanksushe = 5.3; tankengine = false; tankenginesp = 0; voltenginesp = 0; },
+    combat = { hitboxradius = 3; noequipt = false; nospread = false; norecoil = false; nobulletg = false; alwaysauto = false; alwaysheadshot = false; pistolswat = false; snipernoblur = false; snipernogui = false; wallbang = false; nogrenadesmoke = false; nogrenadesmokelimit = false; tasermodz = false; instantrocketseek = false; forcefieldnomiss = false; increasetakedowndamage = false; increaseforcedamage = false; forcefieldreload = false; shootthroughforce =false; instantc4throw = false; antic4limit = false; instantbullethit = false; getweapon = false; silentaim = { enabled = false; includetaser = false; includeplasma = false; radius = 50; wallcheck = false; }; arrestaura = { enabled = false; showtargeted = false; }; batonsword = { noreloadtime = false; spamlunge = false; spamswoosh = false; }; },
+    others = { disablehometurret = false; disablemilitaryturret = false; guardnodmg = false; opendoor = false; prisonelevator = false; nooilblow = false; disablelaser = false; opensewer = false; },
+}
+
+-- == Tambahkan 'require' dari Codecoat ke tabel 'jb' Vape ==
+-- Ini memungkinkan kita menggunakan fungsi-fungsi game yang dibutuhkan
+jb.Codecoat_SimulatedPhysicsProjectile = require(game:GetService("ReplicatedStorage").Module.SimulatedPhysicsProjectile)
+jb.Codecoat_GuardNPCBinder = require(game:GetService("ReplicatedStorage").GuardNPC.GuardNPCBinder)
+jb.Codecoat_CombatConsts = require(game:GetService("ReplicatedStorage").Combat.CombatConsts)
+jb.Codecoat_MilitaryTurretConsts = require(game:GetService("ReplicatedStorage").Game.MilitaryTurret.MilitaryTurretConsts)
+jb.Codecoat_DogConsts = require(game:GetService("ReplicatedStorage").Game.Dog.DogConsts)
+jb.Codecoat_CombatUtils = require(game:GetService("ReplicatedStorage").Combat.CombatUtils)
+jb.Codecoat_PlayerUtils = require(game:GetService("ReplicatedStorage").Game.PlayerUtils)
+jb.Codecoat_ActionButtonService = require(game:GetService("ReplicatedStorage").ActionButton.ActionButtonService)
+jb.Codecoat_Settings = require(game:GetService("ReplicatedStorage").Resource.Settings)
+jb.Codecoat_CharacterUtil = require(game:GetService("ReplicatedStorage").Game.CharacterUtil)
+jb.Codecoat_Paraglide = require(game:GetService("ReplicatedStorage").Game.Paraglide)
+jb.Codecoat_AlexChassis = require(game:GetService("ReplicatedStorage").Module.AlexChassis)
+jb.Codecoat_AlexChassis2 = require(game:GetService("ReplicatedStorage").Module.AlexChassis2)
+jb.Codecoat_Dog = require(game:GetService("ReplicatedStorage").Game.Dog.Dog)
+jb.Codecoat_DogSystem = require(game:GetService("ReplicatedStorage").Game.Dog.DogSystem)
+jb.Codecoat_ItemGun = require(game:GetService("ReplicatedStorage").Game.Item.Gun)
+jb.Codecoat_ItemSystem = require(game:GetService("ReplicatedStorage").Game.ItemSystem.ItemSystem)
+jb.Codecoat_GunUtils = require(game:GetService("ReplicatedStorage").Game.GunShop.GunUtils)
+jb.Codecoat_GamepassSystem = require(game:GetService("ReplicatedStorage").Game.Gamepass.GamepassSystem)
+jb.Codecoat_PistolItem = require(game:GetService("ReplicatedStorage").Game.Item.Pistol)
+jb.Codecoat_SmokeGrenadeItem = require(game:GetService("ReplicatedStorage").Game.SmokeGrenade.SmokeGrenade)
+jb.Codecoat_MovementRollService = require(game:GetService("ReplicatedStorage").MovementRoll.MovementRollService)
+jb.Codecoat_CircleAction = require(game:GetService("ReplicatedStorage").Module.UI).CircleAction
+jb.Codecoat_Tase = require(game:GetService("ReplicatedStorage").Game.Item.Taser)
+jb.Codecoat_PlasmaGun = require(game:GetService("ReplicatedStorage").Game.Item.PlasmaGun)
+jb.Codecoat_GeomUtils = require(game:GetService("ReplicatedStorage"):WaitForChild("Std"):WaitForChild("GeomUtils"))
+jb.Codecoat_VehicleLinkBinder = require(game:GetService("ReplicatedStorage").VehicleLink.VehicleLinkBinder)
+jb.Codecoat_VehicleUtils = require(game:GetService("ReplicatedStorage").Vehicle.VehicleUtils)
+jb.Codecoat_Raycast = require(game:GetService("ReplicatedStorage").Module.RayCast)
+jb.Codecoat_BulletEmitter = require(game:GetService("ReplicatedStorage").Game.ItemSystem.BulletEmitter)
+jb.Codecoat_C4 = require(game:GetService("ReplicatedStorage").Game.Item.C4)
+jb.Codecoat_Wheel = require(game:GetService("ReplicatedStorage").Module.Wheel.Wheel)
+jb.Codecoat_Localization = require(game:GetService("ReplicatedStorage").Module.Localization)
+jb.Codecoat_RocketLauncherConsts = require(game:GetService("ReplicatedStorage").RocketLauncher.RocketLauncherConsts)
+jb.Codecoat_DartDispenser = require(game:GetService("ReplicatedStorage").Game.DartDispenser.DartDispenser)
+jb.Codecoat_RocketWorld = require(game:GetService("ReplicatedStorage").Game.RocketWorld)
+jb.Codecoat_Turret = require(game:GetService("ReplicatedStorage").Turret2.Turret)
+jb.Codecoat_OilRigBinder = require(game:GetService("ReplicatedStorage").OilRig.OilRigBinder)._constructor
+jb.Codecoat_GunShopUI = require(game:GetService("ReplicatedStorage").Game.GunShop.GunShopUI)
+jb.Codecoat_SpotlightBinder = require(game:GetService("ReplicatedStorage").TrackingSpotlight.TrackingSpotlightBinder)
+jb.Codecoat_InventoryItemSystem = require(game:GetService("ReplicatedStorage").Inventory.InventoryItemSystem)
+jb.Codecoat_Interval = require(game:GetService("ReplicatedStorage").Std.Interval)
+jb.Codecoat_TankBinder = require(game:GetService("ReplicatedStorage").Tank.TankBinder)._constructor
+
+-- == Fungsi-fungsi inti dari Codecoat (Diadaptasi) ==
+local function notif(text) vape:CreateNotification('Codecoat', text, 5) end
+
+local function getNearestToCursor()
+    local Target = nil
+    local isEnemies = function(a,b)
+        local a, b = tostring(a), tostring(b)
+        if a == "Criminal" and b == "Police" then return true
+        elseif a == "Police" and b == "Criminal" then return true
+        elseif a == "Prisoner" and b == "Police" then return true
+        else return false
+        end
+    end
+    local notInWall = function(pos, ilist, wallCheck)
+        if not wallCheck then return true end
+        local camera = workspace.CurrentCamera
+        if not camera then return false end
+        local direction = (pos - camera.CFrame.Position).Unit * (pos - camera.CFrame.Position).Magnitude
+        local rayParams = RaycastParams.new()
+        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+        rayParams.FilterDescendantsInstances = ilist or {}
+        rayParams.IgnoreWater = true
+        local result = workspace:Raycast(camera.CFrame.Position, direction, rayParams)
+        return result == nil
+    end
+    local middlepos = workspace.CurrentCamera.ViewportSize / 2
+    for _, v in next, game:GetService("Players"):GetPlayers() do
+        if isEnemies(game.Players.LocalPlayer.Team, v.Team) and v ~= game.Players.LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health ~= 0 then
+            local magnitude = (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - v.Character.HumanoidRootPart.Position).magnitude
+            if magnitude < 300 then
+                local Point, OnScreen = workspace.CurrentCamera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
+                if OnScreen and notInWall(v.Character.HumanoidRootPart.Position, {game.Players.LocalPlayer.Character, v.Character}, configs.combat.silentaim.wallcheck) then
+                    local Distance = (Vector2.new(Point.X, Point.Y) - Vector2.new(middlepos.X, middlepos.Y)).magnitude
+                    if Distance < configs.combat.silentaim.radius then
+                        Target = v
+                        return Target
+                    end
+                end
+            end
+        end
+    end
+    return Target
+end
+
+local function getNearestPlayerNoCuffed()
+    local maxdistance = 18
+    local player = nil
+    for _, v in next, game:GetService("Players"):GetPlayers() do
+        if tostring(v.Team) == "Criminal" then
+            local character = v.Character or nil
+            if character ~= nil and not v.Character:GetAttribute("Handcuffs") then
+                local hrp = character:FindFirstChild("Head") or nil
+                local hum = character:FindFirstChild("Humanoid") or nil
+                if hrp ~= nil and hum ~= nil then
+                    local mag = (game.Players.LocalPlayer.Character:GetModelCFrame().Position - hrp.Position).magnitude
+                    if mag < maxdistance then
+                        player = v
+                        if player ~= nil then return player end
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function launchVehicleFlight()
+    local Character = entitylib.character
+    if not Character or not Character.HumanoidRootPart then return end
+    
+    local BodyGyro = Instance.new("BodyGyro", Character.HumanoidRootPart)
+    local BodyVelocity = Instance.new("BodyVelocity", Character.HumanoidRootPart)
+    local Camera = workspace.CurrentCamera
+    BodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    BodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    BodyGyro.D = 50000
+    BodyGyro.P = 1500000000
+    repeat task.wait()
+        BodyGyro.CFrame = Camera.CFrame * CFrame.Angles(math.rad(configs.vehicle.fx), math.rad(configs.vehicle.fy), math.rad(configs.vehicle.fz))
+        workspace.CurrentCamera.CameraType = Enum.CameraType.Track
+        BodyVelocity.Velocity = Vector3.new()
+        local direction = game.Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"):WaitForChild("ControlModule"):GetMoveVector()
+        if direction.X > 0 then BodyVelocity.Velocity = BodyVelocity.Velocity + Camera.CFrame.RightVector * direction.X end
+        if direction.X < 0 then BodyVelocity.Velocity = BodyVelocity.Velocity + Camera.CFrame.RightVector * direction.X end
+        if direction.Z > 0 then BodyVelocity.Velocity = BodyVelocity.Velocity - Camera.CFrame.LookVector * direction.Z end
+        if direction.Z < 0 then BodyVelocity.Velocity = BodyVelocity.Velocity - Camera.CFrame.LookVector * direction.Z end
+        BodyVelocity.Velocity = BodyVelocity.Velocity * configs.vehicle.fspeed
+    until not configs.vehicle.ftog
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+    BodyGyro:Destroy()
+    BodyVelocity:Destroy()
+end
+
+-- == Loop & Fungsi Callback dari Codecoat ==
+local duckLoop = (function() repeat jb.Codecoat_Dog.duck(); task.wait(2) until not configs.player.backbone end)
+local flipLoop = (function() repeat task.wait(.1) pcall(function() for _, v in next, jb.Codecoat_ActionButtonService.active do if table.find(v.keyCodes, Enum.KeyCode.V) then v.onPressed(true) end end end) until not configs.vehicle.autoflip end)
+local isCrawlingLoop = (function() repeat task.wait(.1) if jb.Codecoat_CharacterUtil.IsCrawling then jb.Codecoat_CharacterUtil.IsCrawling = false end until not configs.player.crawlequip end)
+local hijackLoop = (function() repeat task.wait(.1) for _, v in next, jb.Codecoat_CircleAction.Specs do if v.Name == jb.Codecoat_Localization:FormatByKey("Action.Hijack") then v:Callback(true) end end until not configs.vehicle.alwayshij end)
+local nitroLoop = (function() local nitro = debug.getupvalue(jb.Codecoat_VehicleController.NitroShopVisible, 1) repeat task.wait() nitro.NitroLastMax = 250; nitro.Nitro = math.random(10, 249); nitro.NitroForceUIUpdate = true until not configs.vehicle.infnitro end)
+local sprintLoop = (function() repeat task.wait() local walkspeedfun = debug.getupvalue(jb.Codecoat_FallingController.Init, 19); setupvalue(walkspeedfun, 9, true) until not configs.player.alwayssp end)
+local spamBatonSwordSwoosh = (function() repeat task.wait() local a = jb.Codecoat_ItemSystem.GetLocalEquipped(); if a and (a.__ClassName == "Sword" or a.__ClassName == "Baton") then require(game:GetService("ReplicatedStorage").Game.Item[a.__ClassName]).SwingSwoosh(a) end until not configs.combat.batonsword.spamswoosh end)
+local spamBatonSwordLunge = (function() repeat task.wait() local a = jb.Codecoat_ItemSystem.GetLocalEquipped(); if a and (a.__ClassName == "Sword" or a.__ClassName == "Baton") then require(game:GetService("ReplicatedStorage").Game.Item[a.__ClassName]).SwingLunge(a) end until not configs.combat.batonsword.spamlunge end)
+local launchArrestAura = (function() repeat task.wait(0.15) pcall(function() local plr = getNearestPlayerNoCuffed(); if plr then jb:FireServer('AttemptArrest', plr) end end) until not configs.combat.arrestaura.enabled end)
+local opendoorloop = (function() repeat for _, v in next, jb.Codecoat_TagFunInstance do v["Fun"]() end; task.wait(1.5) until not configs.others.opendoor end)
+local opensewerloop = (function() repeat task.wait(0.05) for _, v in next, jb.Codecoat_TagFunInstance do if v["_DEBUG"] == "SewerHatch" then v["Fun"]() end end until not configs.others.opensewer end)
+local cellloop = (function() repeat task.wait(0.1) for _, v in next, jb.Codecoat_Doors.cellz do if v.State.Open == false then v.State.Open = true; v:OpenFun() end end until not configs.player.nocwait end)
+
+-- == Hooking Logic Utama dari Codecoat (Diadaptasi) ==
+run(function()
+    -- Simpan fungsi asli untuk bisa dikembalikan nanti
+    local ori = {
+        hasperm = jb.Codecoat_PlayerUtils.hasKey,
+        hittargetwithspeed = jb.Codecoat_SimulatedPhysicsProjectile.HitTargetWithSpeed,
+        bulletemitteronlocalhitplayer = jb.Codecoat_ItemGun.BulletEmitterOnLocalHitPlayer,
+        shoot = jb.Codecoat_ItemGun.Shoot,
+        rayignore = jb.Codecoat_Raycast.RayIgnoreNonCollideWithIgnoreList,
+        rayignorenon = jb.Codecoat_Raycast.RayIgnoreNonCollide,
+        tase = jb.Codecoat_Tase.Tase,
+        doesplayerowncached = jb.Codecoat_GamepassSystem.doesPlayerOwnCached,
+        getequiptime = jb.Codecoat_GunUtils.getEquipTime,
+        isflying = jb.Codecoat_Paraglide.IsFlying,
+        plasmashootother = jb.Codecoat_PlasmaGun.ShootOther,
+    }
+    for i, v in next, ori do ori[i] = clonefunction(v) end
+
+    -- Mulai hooking
+    hookfunction(jb.Codecoat_PlayerUtils.hasKey, function(...) if configs.player.doornoreq then return true end; return ori.hasperm(...) end)
+    jb.Codecoat_SimulatedPhysicsProjectile.HitTargetWithSpeed = (function(...) local args = {...}; if configs.combat.forcefieldnomiss and args[3] == 75 then args[3] = 1 end; return ori.hittargetwithspeed(unpack(args)) end)
+    jb.Codecoat_ItemGun.BulletEmitterOnLocalHitPlayer = (function(...) local args = {...}; if configs.combat.alwaysheadshot then args[15].isHeadshot = true; args[15].isWallbang = false end; return ori.bulletemitteronlocalhitplayer(unpack(args)) end)
+    jb.Codecoat_ItemGun.Shoot = (function(self, a)
+        if configs.combat.silentaim.enabled then
+            local character = getNearestToCursor() and getNearestToCursor().Character
+            local hrp = character and character:FindFirstChild("HumanoidRootPart")
+            if hrp then self.TipDirection = (hrp.Position - self.Tip.Position).Unit end
+        end
+        local oldLastUpdate = self.BulletEmitter.LastUpdate
+        local oldignorelist = self.BulletEmitter.IgnoreList
+        self.BulletEmitter.LastUpdate = configs.combat.instantbullethit and -9e9 or oldLastUpdate
+        self.BulletEmitter.IgnoreList = configs.combat.wallbang and {workspace} or oldignorelist
+        return ori.shoot(self, a)
+    end)
+    jb.Codecoat_PlasmaGun.ShootOther = (function(self,a) if configs.combat.silentaim.enabled and configs.combat.silentaim.includeplasma then local character = getNearestToCursor() and getNearestToCursor().Character; local hrp = character and character:FindFirstChild("HumanoidRootPart"); if hrp then self.TipDirection = (hrp.Position - self.Tip.Position).Unit end end; return ori.plasmashootother(self,a) end)
+    jb.Codecoat_Tase.Tase = (function(self,...) if configs.combat.tasermodz then self._lastDraw = 0 end; return ori.tase(self,...) end)
+    jb.Codecoat_Raycast.RayIgnoreNonCollideWithIgnoreList = (function(...) if debug.traceback():find("Taser") and configs.combat.silentaim.enabled and configs.combat.silentaim.includetaser then local character = getNearestToCursor() and getNearestToCursor().Character; local hrp = character and character:FindFirstChild("HumanoidRootPart"); if hrp then return hrp, hrp.Position, hrp.Position, ... end end; return ori.rayignore(...) end)
+    jb.Codecoat_Raycast.RayIgnoreNonCollide = (function(...) local args = {...}; if configs.vehicle.driveonwater and debug.traceback():find("AlexChassis") then args[6] = true end; return ori.rayignorenon(unpack(args)) end)
+    jb.Codecoat_GamepassSystem.doesPlayerOwnCached = (function(...) local args = {...}; if configs.combat.pistolswat and tostring(args[1]) == game.Players.LocalPlayer.Name and debug.traceback():find("tem.Pistol") then return true end; return ori.doesplayerowncached(...) end)
+    jb.Codecoat_GunUtils.getEquipTime = (function(...) return configs.combat.noequipt and 0 or ori.getequiptime(...) end)
+    jb.Codecoat_Paraglide.IsFlying = (function(...) return configs.player.nosky and debug.traceback():find("Falling") and true or ori.isflying(...) end)
+
+    -- Event Connections
+    game:GetService("UserInputService").JumpRequest:Connect(function() if configs.player.infjump then game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping") end end)
+    game.Lighting.ChildAdded:Connect(function(mama) if configs.combat.snipernoblur and mama.Name == "Blur" then mama:GetPropertyChangedSignal("Size"):Connect(function() mama.Enabled = false end) end end)
+    jb.Codecoat_VehicleController.OnVehicleEntered:Connect(function(arg1)
+        if configs.vehicle.ftog then launchVehicleFlight() end
+        if arg1.Type == "Heli" then
+            arg1.MaxHeight = configs.vehicle.heliheight and 9e9 or 400
+            arg1.FallOutOfSkyDuration = configs.vehicle.helibreak and 0 or 10
+            arg1.DisableDuration = configs.vehicle.helibreak and 0 or 10
+        elseif arg1.Type == "Chassis" then
+            arg1.TirePopDuration = configs.vehicle.nopop and 0 or 7.5
+            arg1.DisableDuration = configs.vehicle.nopop and 0 or 7.5
+            arg1.TirePopProportion = configs.vehicle.nopop and 0 or 0.5
+        end
+    end)
+    jb.Codecoat_ItemSystem.OnLocalItemEquipped:Connect(function(equippeddata)
+        local a = jb.Codecoat_ItemSystem.GetLocalEquipped()
+        if a and a.BulletEmitter and a.BulletEmitter.GravityVector then
+            a.BulletEmitter.GravityVector = configs.combat.nobulletg and nil or Vector3.new(0, -workspace.Gravity / 10, 0)
+        end
+        if a.__ClassName == "ForcefieldLauncher" then
+            a.Config.Reload = configs.combat.forcefieldreload and 0 or 4
+        end
+    end)
+
+    -- Loop utama update
+    task.spawn(function()
+        while true do
+            task.wait(.1)
+            pcall(function()
+                local gvp = jb.Codecoat_VehicleController.GetLocalVehiclePacket()
+                if gvp ~= nil and gvp.Type == "Chassis" then
+                    if configs.vehicle.engine then gvp.GarageEngineSpeed = configs.vehicle.enginesp end
+                    if configs.vehicle.suspension then gvp.Height = configs.vehicle.suspensionhe end
+                    if configs.vehicle.turn then gvp.TurnSpeed = configs.vehicle.turnsp end
+                end
+            end)
+        end
+    end)
+end)
+
+-- =======================================================
+-- == AKHIRAN DARI SCRIPT CODECOAT (DITAMBAHKAN) ==
+-- =======================================================
+
+
+-- =======================================================
+-- == UI UNTUK FITUR-FITUR CODECOAT BARU ==
+-- =======================================================
+run(function()
+    local CodecoatFeatures = vape.Categories.Others:CreateModule({
+        Name = 'Codecoat Features',
+        Function = function() end
+    })
+
+    -- Tab Player
+    local PlayerSection = CodecoatFeatures:CreateSection({Name = 'Player Utilities'})
+    PlayerSection:AddToggle({
+        Name = 'Anti Ragdoll',
+        Function = function(callback)
+            configs.player.norag = callback
+            if entitylib.character then
+                if callback then
+                    entitylib.character.HumanoidRootPart:AddTag("NoRagdoll")
+                else
+                    entitylib.character.HumanoidRootPart:RemoveTag("NoRagdoll")
+                end
+            end
+        end
+    })
+    PlayerSection:AddToggle({
+        Name = 'Anti Fall Injury',
+        Function = function(callback)
+            configs.player.nofall = callback
+            if entitylib.character then
+                if callback then
+                    entitylib.character.HumanoidRootPart:AddTag("NoFallDamage")
+                else
+                    entitylib.character.HumanoidRootPart:RemoveTag("NoFallDamage")
+                end
+            end
+        end
+    })
+    PlayerSection:AddToggle({
+        Name = 'Anti Skydiving',
+        Function = function(callback) configs.player.nosky = callback end
+    })
+    PlayerSection:AddToggle({
+        Name = 'Infinite Jump',
+        Function = function(callback) configs.player.infjump = callback end
+    })
+    PlayerSection:AddToggle({
+        Name = 'Always Sprinting',
+        Function = function(callback)
+            configs.player.alwayssp = callback
+            if callback then sprintLoop() end
+        end
+    })
+    PlayerSection:AddToggle({
+        Name = 'Allow Equip When Crawling',
+        Function = function(callback)
+            configs.player.crawlequip = callback
+            if callback then isCrawlingLoop() end
+        end
+    })
+    PlayerSection:AddToggle({
+        Name = 'Break Your Back Bone (Duck Spam)',
+        Function = function(callback)
+            configs.player.backbone = callback
+            if callback then duckLoop() end
+        end
+    })
+
+    -- Tab Vehicle
+    local VehicleSection = CodecoatFeatures:CreateSection({Name = 'Vehicle Utilities'})
+    VehicleSection:AddToggle({
+        Name = 'Vehicle Flight',
+        Function = function(callback)
+            configs.vehicle.ftog = callback
+            if callback then launchVehicleFlight() end
+        end
+    })
+    VehicleSection:AddSlider({
+        Name = 'Flight Speed',
+        Min = 0,
+        Max = 1000,
+        Default = 10,
+        Function = function(val) configs.vehicle.fspeed = val end
+    })
+    VehicleSection:AddSlider({
+        Name = 'Flight Rotation X',
+        Min = -180,
+        Max = 180,
+        Default = 0,
+        Function = function(val) configs.vehicle.fx = val end
+    })
+    VehicleSection:AddSlider({
+        Name = 'Flight Rotation Y',
+        Min = -180,
+        Max = 180,
+        Default = 0,
+        Function = function(val) configs.vehicle.fy = val end
+    })
+    VehicleSection:AddSlider({
+        Name = 'Flight Rotation Z',
+        Min = -180,
+        Max = 180,
+        Default = 0,
+        Function = function(val) configs.vehicle.fz = val end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Infinite Nitro',
+        Function = function(callback)
+            configs.vehicle.infnitro = callback
+            if callback then nitroLoop() end
+        end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Anti Vehicle Hijack',
+        Function = function(callback)
+            configs.vehicle.alwayshij = callback
+            if callback then hijackLoop() end
+        end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Always Flip',
+        Function = function(callback)
+            configs.vehicle.autoflip = callback
+            if callback then flipLoop() end
+        end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Drive On Water',
+        Function = function(callback) configs.vehicle.driveonwater = callback end
+    })
+    VehicleSection:AddSlider({
+        Name = 'Engine Speed',
+        Min = 1,
+        Max = 200,
+        Default = 0,
+        Function = function(val) configs.vehicle.enginesp = val end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Apply Engine Speed',
+        Function = function(callback) configs.vehicle.engine = callback end
+    })
+    VehicleSection:AddSlider({
+        Name = 'Suspension Height',
+        Min = 1,
+        Max = 200,
+        Default = 0,
+        Function = function(val) configs.vehicle.suspensionhe = val end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Apply Suspension Height',
+        Function = function(callback) configs.vehicle.suspension = callback end
+    })
+    VehicleSection:AddSlider({
+        Name = 'Turn Speed',
+        Min = 1,
+        Max = 5,
+        Default = 0,
+        Decimal = 1,
+        Function = function(val) configs.vehicle.turnsp = val end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Apply Turn Speed',
+        Function = function(callback) configs.vehicle.turn = callback end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Anti Tire Pop',
+        Function = function(callback) configs.vehicle.nopop = callback end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Instant Heli Pickup',
+        Function = function(callback) configs.vehicle.helipick = callback end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Anti Heli Down',
+        Function = function(callback) configs.vehicle.helibreak = callback end
+    })
+    VehicleSection:AddToggle({
+        Name = 'Infinite Heli Height',
+        Function = function(callback) configs.vehicle.heliheight = callback end
+    })
+    
+    -- Tab Combat
+    local CombatSection = CodecoatFeatures:CreateSection({Name = 'Combat Utilities'})
+    CombatSection:AddToggle({
+        Name = 'Always Auto',
+        Function = function(callback) configs.combat.alwaysauto = callback end
+    })
+    CombatSection:AddToggle({
+        Name = 'Anti Recoil',
+        Function = function(callback) configs.combat.norecoil = callback end
+    })
+    CombatSection:AddToggle({
+        Name = 'Anti Spread',
+        Function = function(callback) configs.combat.nospread = callback end
+    })
+    CombatSection:AddToggle({
+        Name = 'Bullet Criticals (Headshot)',
+        Function = function(callback) configs.combat.alwaysheadshot = callback end
+    })
+    CombatSection:AddToggle({
+        Name = 'Instant Bullet Hit',
+        Function = function(callback) configs.combat.instantbullethit = callback end
+    })
+    CombatSection:AddToggle({
+        Name = 'Shoot Through Wall',
+        Function = function(callback) configs.combat.wallbang = callback end
+    })
+    CombatSection:AddToggle({
+        Name = 'Fast Taser',
+        Function = function(callback) configs.combat.tasermodz = callback end
+    })
+    CombatSection:AddToggle({
+        Name = 'Anti Smoke Grenade Effect',
+        Function = function(callback) configs.combat.nogrenadesmoke = callback end
+    })
+    CombatSection:AddToggle({
+        Name = 'Free Pistol Swat',
+        Function = function(callback) configs.combat.pistolswat = callback end
+    })
+    CombatSection:AddToggle({
+        Name = 'Arrest Aura',
+        Function = function(callback)
+            configs.combat.arrestaura.enabled = callback
+            if callback then launchArrestAura() end
+        end
+    })
+    local MeleeSection = CodecoatFeatures:CreateSection({Name = 'Melee'})
+    MeleeSection:AddToggle({
+        Name = 'Always Swoosh',
+        Function = function(callback)
+            configs.combat.batonsword.spamswoosh = callback
+            if callback then spamBatonSwordSwoosh() end
+        end
+    })
+    MeleeSection:AddToggle({
+        Name = 'Always Lunge',
+        Function = function(callback)
+            configs.combat.batonsword.spamlunge = callback
+            if callback then spamBatonSwordLunge() end
+        end
+    })
+
+    -- Tab Others
+    local OthersSection = CodecoatFeatures:CreateSection({Name = 'World Utilities'})
+    OthersSection:AddToggle({
+        Name = 'Open All Doors & Gates',
+        Function = function(callback)
+            configs.others.opendoor = callback
+            if callback then opendoorloop() end
+        end
+    })
+    OthersSection:AddToggle({
+        Name = 'Open All Sewer Hatch',
+        Function = function(callback)
+            configs.others.opensewer = callback
+            if callback then opensewerloop() end
+        end
+    })
+    OthersSection:AddToggle({
+        Name = 'Anti Cell Wait',
+        Function = function(callback)
+            configs.player.nocwait = callback
+            if callback then cellloop() end
+        end
+    })
+    OthersSection:AddToggle({
+        Name = 'Disable Home Turret',
+        Function = function(callback) configs.others.disablehometurret = callback end
+    })
+    OthersSection:AddToggle({
+        Name = 'Disable Military Turret',
+        Function = function(callback) configs.others.disablemilitaryturret = callback end
+    })
+    OthersSection:AddToggle({
+        Name = 'Disable Guard Damage',
+        Function = function(callback) configs.others.guardnodmg = callback end
+    })
+    OthersSection:AddToggle({
+        Name = 'Disable Oil Rig Self Destruct',
+        Function = function(callback) configs.others.nooilblow = callback end
+    })
+end)
