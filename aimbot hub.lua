@@ -1506,7 +1506,7 @@ local function createESP(player)
     local healthBar = Drawing.new("Square")
     healthBar.Visible = false
     healthBar.Color = Color3.fromRGB(0, 255, 0)
-    healthBar.Thickness = 0
+    healthBar.Thickness = 1
     healthBar.Filled = true
     ESPCache[player].healthBar = healthBar
     
